@@ -1,0 +1,2718 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tria Price</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:       #0c0d0f;
+    --bg2:      #131518;
+    --bg3:      #1a1d21;
+    --bg4:      #22262b;
+    --border:   rgba(255,255,255,0.07);
+    --border2:  rgba(255,255,255,0.12);
+    --text:     #f0f2f5;
+    --muted:    #6b7280;
+    --muted2:   #9ca3af;
+    --green:    #4ade80;
+    --green2:   #22c55e;
+    --red:      #f87171;
+    --blue:     #60a5fa;
+    --yellow:   #fbbf24;
+    --panic:    #ef4444;
+    --buy:      #4ade80;
+    --sell:     #fb923c;
+    --radius:   10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── PANIC ── */
+  #panic-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(8,4,4,0.97);
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px;
+    text-align: center;
+  }
+  #panic-overlay.on { display: flex; }
+  .panic-icon { font-size: 64px; animation: blink 1s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .panic-title {
+    font-size: 36px; font-weight: 700;
+    color: var(--panic);
+    letter-spacing: -1px;
+  }
+  .panic-sub {
+    font-family: 'DM Mono', monospace;
+    color: #f87171; font-size: 14px;
+    max-width: 420px; line-height: 1.7;
+  }
+  .panic-time {
+    font-family: 'DM Mono', monospace;
+    color: var(--muted); font-size: 12px;
+    margin-top: 8px;
+  }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 28px; right: 28px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--muted2);
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    padding: 12px 20px; border-radius: 8px;
+    transform: translateY(60px); opacity: 0;
+    transition: all .25s; z-index: 500;
+    max-width: 320px;
+  }
+  #toast.on { transform: translateY(0); opacity: 1; }
+
+  /* ── HEADER ── */
+  header {
+    height: 56px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 32px;
+    gap: 24px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo-wrap {
+    display: flex; align-items: center; gap: 10px;
+    margin-right: auto;
+  }
+  .logo-wrap img {
+    height: 24px;
+    filter: brightness(0) invert(1);
+    opacity: 0.92;
+  }
+  .logo-divider {
+    width: 1px; height: 20px;
+    background: var(--border2);
+  }
+  .logo-label {
+    font-size: 12px; color: var(--muted);
+    font-weight: 500; letter-spacing: 0.3px;
+  }
+
+  .update-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 5px 12px; border-radius: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .update-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+  }
+  .update-dot.stale { background: var(--yellow); }
+
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab {
+    padding: 6px 16px; border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent; color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all .15s;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active {
+    background: var(--bg4);
+    border-color: var(--border2);
+    color: var(--text);
+  }
+
+  #panic-btn {
+    padding: 6px 16px; border-radius: 6px;
+    border: 1px solid rgba(239,68,68,.4);
+    background: rgba(239,68,68,.08);
+    color: #f87171;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+    letter-spacing: 0.3px;
+  }
+  #panic-btn:hover {
+    background: rgba(239,68,68,.18);
+    border-color: var(--panic);
+  }
+
+  /* ── LAYOUT ── */
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 28px; }
+  .view { display: none; }
+  .view.on { display: block; }
+
+  /* ── TYPOGRAPHY ── */
+  .page-title {
+    font-size: 22px; font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .page-sub {
+    font-size: 13px; color: var(--muted);
+    margin-bottom: 32px;
+  }
+  .section-title {
+    font-size: 11px; font-weight: 600;
+    color: var(--muted); letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+  .card-row {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    align-items: flex-start;
+    margin-bottom: 24px;
+  }
+  .card-row:last-child { margin-bottom: 0; }
+  hr.sep {
+    border: none; border-top: 1px solid var(--border);
+    margin: 24px 0;
+  }
+
+  /* ── FIELDS ── */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label {
+    font-size: 11px; font-weight: 500;
+    color: var(--muted); letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .field input[type="text"],
+  .field textarea {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif; font-size: 13px;
+    transition: border-color .15s;
+    width: 100%;
+  }
+  .field input[type="text"]:focus,
+  .field textarea:focus {
+    outline: none; border-color: rgba(74,222,128,.4);
+  }
+  .field textarea { min-height: 72px; resize: vertical; }
+
+  /* ── TOGGLE PILLS ── */
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    padding: 7px 16px; border-radius: 8px;
+    border: 1px solid var(--border2);
+    background: var(--bg3); color: var(--muted2);
+    font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all .15s;
+    user-select: none;
+  }
+  .pill:hover { color: var(--text); border-color: var(--border2); }
+  .pill.p-buy  { background:rgba(74,222,128,.1); border-color:rgba(74,222,128,.4); color:var(--buy); }
+  .pill.p-sell { background:rgba(251,146,60,.1);  border-color:rgba(251,146,60,.4); color:var(--sell); }
+  .pill.p-sub  { background:rgba(96,165,250,.1);  border-color:rgba(96,165,250,.4); color:var(--blue); }
+  .pill.p-src  { background:rgba(251,191,36,.1);  border-color:rgba(251,191,36,.4); color:var(--yellow); }
+
+  /* ── PERIOD CARDS ── */
+  .periods-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .period-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 32px 1fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+    transition: border-color .15s;
+  }
+  .period-card:hover { border-color: var(--border2); }
+  .period-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted);
+    font-weight: 500;
+    padding-bottom: 8px;
+    text-align: center;
+  }
+  .period-field { display: flex; flex-direction: column; gap: 5px; }
+  .period-field label {
+    font-size: 10px; color: var(--muted);
+    font-weight: 500; letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .period-select {
+    width: 100%;
+    background: var(--bg4);
+    border: 1px solid var(--border2);
+    border-radius: 7px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    cursor: pointer;
+    transition: border-color .15s;
+    appearance: none;
+  }
+  .period-select:focus { outline:none; border-color: rgba(74,222,128,.4); }
+  .period-select option { background: var(--bg3); }
+  .period-remove {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 14px;
+    width: 30px; height: 30px;
+    cursor: pointer; display: flex;
+    align-items: center; justify-content: center;
+    transition: all .15s;
+    flex-shrink: 0;
+    margin-bottom: 1px;
+  }
+  .period-remove:hover { border-color: var(--panic); color: var(--panic); }
+  .add-period-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px; border-radius: 8px;
+    border: 1px dashed var(--border2);
+    background: transparent; color: var(--muted);
+    font-family: 'Inter', sans-serif; font-size: 13px;
+    font-weight: 500; cursor: pointer;
+    transition: all .15s; width: fit-content;
+  }
+  .add-period-btn:hover { border-color: rgba(74,222,128,.4); color: var(--green); }
+  .add-period-btn.hidden { display: none; }
+
+  /* ── RESULTS ── */
+  .results-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .res-card {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    padding: 12px 18px;
+    display: grid;
+    grid-template-columns: 24px 120px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    transition: border-color .2s, background .2s;
+  }
+  .res-card.lit-buy  { border-color:rgba(74,222,128,.25); background:rgba(74,222,128,.04); }
+  .res-card.lit-sell { border-color:rgba(251,146,60,.25);  background:rgba(251,146,60,.04); }
+  .res-idx {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted);
+    font-weight: 500; text-align: center;
+  }
+  .res-range {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted2);
+    line-height: 1.6;
+  }
+  .res-range .r-from { color: var(--muted); font-size: 10px; }
+  .res-months {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted);
+  }
+  .res-price-wrap { text-align: right; }
+  .res-price {
+    font-family: 'DM Mono', monospace;
+    font-size: 20px; font-weight: 500;
+    letter-spacing: -1px; color: var(--text);
+  }
+  .lit-buy  .res-price { color: var(--buy); }
+  .lit-sell .res-price { color: var(--sell); }
+  .res-unit {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    margin-top: 1px;
+  }
+  .res-empty {
+    grid-column: 1/-1;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px; color: var(--muted);
+    text-align: center; padding: 8px 0;
+  }
+
+  /* ── ADMIN TABLE ── */
+  .admin-bar {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    align-items: center; margin-bottom: 20px;
+  }
+  .filter-strip {
+    display: flex; gap: 6px; align-items: center;
+    margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .filter-strip .label {
+    font-size: 11px; color: var(--muted);
+    font-weight: 500; letter-spacing: 0.5px;
+    text-transform: uppercase; width: 80px;
+  }
+  .ftag {
+    padding: 5px 12px; border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg3); color: var(--muted);
+    font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all .15s;
+  }
+  .ftag.on { border-color:var(--border2); color: var(--text); background: var(--bg4); }
+
+  .tbl-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table.ptable {
+    width: 100%; border-collapse: collapse;
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    min-width: 380px;
+  }
+  .ptable th {
+    padding: 10px 14px; text-align: left;
+    font-size: 10px; font-weight: 600;
+    color: var(--muted); letter-spacing: 1px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    position: sticky; top: 0;
+  }
+  .ptable th.r { text-align: right; }
+  .ptable td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .ptable tr:last-child td { border-bottom: none; }
+  .ptable td.period-td {
+    color: var(--muted2); font-size: 11px;
+    white-space: nowrap;
+  }
+  .ptable td.hours-td {
+    color: var(--muted); font-size: 10px;
+    text-align: right; padding-right: 6px;
+  }
+  .ptable td.input-td { text-align: right; padding: 4px 8px; }
+  .ptable tr.grp-head td {
+    background: var(--bg3);
+    color: var(--muted); font-size: 10px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 8px 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .p-input {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    width: 86px; text-align: right;
+    transition: border-color .15s;
+  }
+  .p-input:focus { outline:none; }
+  .p-input.buy:focus   { border-color:rgba(74,222,128,.5); }
+  .p-input.sell:focus  { border-color:rgba(251,146,60,.5); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 8px 18px; border-radius: 8px;
+    border: 1px solid var(--border2);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn-green {
+    background: var(--green2); border-color: var(--green2);
+    color: #000;
+  }
+  .btn-green:hover { background: #16a34a; border-color:#16a34a; }
+  .btn-ghost {
+    background: transparent; color: var(--muted2);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+  .btn-orange {
+    background: rgba(251,191,36,.1);
+    border-color: rgba(251,191,36,.3);
+    color: var(--yellow);
+  }
+  .btn-orange:hover { background: rgba(251,191,36,.18); }
+  .btn-panic-dismiss {
+    margin-top: 12px;
+    padding: 10px 28px; border-radius: 8px;
+    border: 1px solid rgba(239,68,68,.4);
+    background: transparent; color: #f87171;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+  }
+  .btn-panic-dismiss:hover { background: rgba(239,68,68,.1); }
+
+  .save-ok {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; color: var(--green);
+    opacity: 0; transition: opacity .3s;
+    align-self: center;
+  }
+  .save-ok.on { opacity:1; }
+
+
+  /* ── SUMMARY TABLE ── */
+  .summary-wrap {
+    margin-bottom: 24px;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 140px repeat(6, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+  }
+  .sg-cell {
+    background: var(--bg2);
+    padding: 9px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .sg-cell.header {
+    background: var(--bg3);
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .sg-cell.row-label {
+    background: var(--bg3);
+    color: var(--muted2);
+    font-size: 11px;
+    font-weight: 500;
+    justify-content: center;
+  }
+  .sg-cell.src-header {
+    background: var(--bg4);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    grid-column: span 2;
+  }
+  .sg-cell.src-header.conv { color: var(--muted2); }
+  .sg-cell.src-header.i5   { color: var(--yellow); }
+  .sg-buy  { color: var(--buy);  font-size: 13px; font-weight: 500; }
+  .sg-sell { color: var(--sell); font-size: 13px; font-weight: 500; }
+  .sg-label { font-size: 9px; color: var(--muted); letter-spacing: 0.5px; }
+
+
+  /* ── VOLUME INPUTS ── */
+  .vol-wrap {
+    grid-column: 1 / -1;
+    margin-top: 10px;
+    background: var(--bg4);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .vol-header { margin-bottom: 8px; }
+  .vol-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .vol-grid {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .vol-col {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+    min-width: 72px;
+  }
+  .vol-month {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted2);
+    text-align: center;
+  }
+  .vol-hours {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; color: var(--muted);
+  }
+  .vol-input {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 5px 6px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    width: 72px; text-align: center;
+    transition: border-color .15s;
+  }
+  .vol-input:focus { outline: none; border-color: rgba(74,222,128,.4); }
+
+  /* ── PARAMS CARD ── */
+  .params-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 28px;
+    margin-bottom: 20px;
+    display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-end;
+  }
+  .params-group { display: flex; flex-direction: column; gap: 8px; }
+  .params-group label {
+    font-size: 11px; font-weight: 500;
+    color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .params-row { display: flex; gap: 8px; align-items: center; }
+  .params-input {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 13px;
+    width: 88px; text-align: center;
+    transition: border-color .15s;
+  }
+  .params-input:focus { outline: none; border-color: rgba(74,222,128,.4); }
+  .params-sep {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; color: var(--muted);
+  }
+
+
+  /* ── PREMIUM RESULT ── */
+  .pill.p-vol { border-color: var(--border2); color: var(--muted2); }
+  .pill.active-vol { background:rgba(251,191,36,.12); border-color:rgba(251,191,36,.5); color:var(--yellow); }
+  .premium-result {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    min-width: 180px;
+  }
+  .prem-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 3px 0; gap: 16px;
+  }
+  .prem-row.total {
+    border-top: 1px solid var(--border2);
+    margin-top: 6px; padding-top: 8px;
+  }
+  .prem-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted);
+  }
+  .prem-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px; color: var(--text); font-weight: 500;
+  }
+  .prem-row.total .prem-val { color: var(--yellow); font-size: 15px; }
+  .prem-row.total .prem-label { color: var(--muted2); font-weight: 600; }
+  .prem-note {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    margin-top: 6px; line-height: 1.5;
+  }
+
+  /* ── NON-STANDARD ALERT ── */
+  .period-alert {
+    display: none;
+    margin-top: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(251,191,36,.4);
+    background: rgba(251,191,36,.07);
+    color: var(--yellow);
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    line-height: 1.5;
+    grid-column: 1 / -1;
+  }
+  .period-alert.on { display: block; }
+  .period-card.nonstandard { border-color: rgba(251,191,36,.35); }
+
+  /* ── PROPOSAL TYPE ── */
+  .pill.p-firm  { background:rgba(96,165,250,.1);  border-color:rgba(96,165,250,.5); color:var(--blue); }
+  .pill.p-indic { background:rgba(156,163,175,.1); border-color:rgba(156,163,175,.4); color:var(--muted2); }
+
+  /* ── EXPORT BTN ── */
+  .btn-export {
+    padding: 8px 18px; border-radius: 8px;
+    border: 1px solid var(--border2);
+    background: transparent; color: var(--muted2);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-export:hover { color: var(--green); border-color: rgba(74,222,128,.4); }
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:700px){
+    .period-card { grid-template-columns: 24px 1fr 1fr auto; gap:8px; padding:12px; }
+    header { padding: 0 16px; gap:12px; }
+    main { padding: 20px 16px; }
+    .logo-label { display:none; }
+    .logo-divider { display:none; }
+  }
+
+  /* ══ LOGIN ══ */
+  #login-screen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    z-index: 8000;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    gap: 0;
+  }
+  #login-screen.hidden { display: none; }
+
+  .login-box {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 48px 52px;
+    width: 380px;
+    display: flex; flex-direction: column; gap: 0;
+    box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  }
+  .login-logo {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 36px;
+  }
+  .login-logo img {
+    height: 28px;
+    filter: brightness(0) invert(1);
+    opacity: .92;
+  }
+  .login-logo-text {
+    font-size: 20px; font-weight: 700; letter-spacing: -0.5px;
+  }
+  .login-logo-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--green);
+    letter-spacing: 2px; text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .login-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .login-field label {
+    font-size: 11px; font-weight: 500;
+    color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .login-field input {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif; font-size: 14px;
+    transition: border-color .15s; width: 100%;
+  }
+  .login-field input:focus { outline: none; border-color: rgba(74,222,128,.5); }
+  .login-field input[type="password"] {
+    font-size: 20px; letter-spacing: 6px;
+  }
+  .login-field input[type="password"]::placeholder { font-size: 13px; letter-spacing: 0; }
+  .login-btn {
+    width: 100%; padding: 13px;
+    border-radius: 10px; border: none;
+    background: var(--green2); color: #000;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: all .15s;
+    margin-top: 8px;
+  }
+  .login-btn:hover { background: #16a34a; transform: translateY(-1px); }
+  .login-error {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; color: var(--panic);
+    text-align: center; margin-top: 12px;
+    min-height: 18px;
+    transition: opacity .2s;
+  }
+  .login-footer {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    text-align: center; margin-top: 28px;
+  }
+
+  /* ══ USER BADGE ══ */
+  .user-badge {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 5px 12px; border-radius: 6px;
+    cursor: pointer; transition: all .15s;
+  }
+  .user-badge:hover { border-color: var(--panic); color: var(--panic); }
+  .user-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); flex-shrink: 0;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <img src="https://triaenergia.com.br/wp-content/uploads/elementor/thumbs/logo-tria-rix8mlin33srrqa4j3bmavnrrxln8tmayqyupd85eo.png"
+        alt="Tria" onerror="this.style.display='none'">
+      <div>
+        <div class="login-logo-text">TRIA</div>
+        <div class="login-logo-sub">Price</div>
+      </div>
+    </div>
+    <div class="login-field">
+      <label>E-mail</label>
+      <input type="email" id="login-email" placeholder="seu@triaenergia.com.br"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-pin').focus()">
+    </div>
+    <div class="login-field">
+      <label>PIN (4 dígitos)</label>
+      <input type="password" id="login-pin" placeholder="••••"
+        maxlength="4" inputmode="numeric" pattern="[0-9]*"
+        oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Entrar</button>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-footer">Tria Price · Acesso restrito ao time comercial</div>
+  </div>
+</div>
+
+
+
+<!-- PANIC OVERLAY -->
+<div id="panic-overlay">
+  <div class="panic-icon">⚡</div>
+  <div class="panic-title">Mercado em Alerta</div>
+  <div class="panic-sub">
+    Os preços estão sendo revisados.<br>
+    Não feche operações até a liberação.
+  </div>
+  <div class="panic-time" id="panic-time"></div>
+  <button class="btn-panic-dismiss" onclick="dismissPanic()">Liberar (admin)</button>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo-wrap">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="32" height="32" rx="7" fill="#00c896"/>
+      <text x="16" y="23" text-anchor="middle" font-family="Arial,sans-serif" font-weight="900" font-size="18" fill="#000">T</text>
+    </svg>
+    <span style="font-size:17px;font-weight:700;letter-spacing:-0.5px;color:var(--text)">TRIA</span>
+    <div class="logo-divider"></div>
+    <span class="logo-label">Price</span>
+  </div>
+    <span class="logo-label">Price</span>
+  </div>
+
+  <div class="update-badge">
+    <div class="update-dot" id="update-dot"></div>
+    <span id="update-time">sem atualização</span>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="goView('comercial',this)">Comercial</button>
+    <button class="nav-tab" onclick="goView('admin',this)">Admin</button>
+  </div>
+
+  <div class="user-badge" id="user-badge" onclick="doLogout()" title="Clique para sair" style="display:none">
+    <div class="user-dot"></div>
+    <span id="user-name-badge">—</span>
+    <span style="margin-left:4px;opacity:.5">sair</span>
+  </div>
+  <div id="user-badge" style="display:none;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);background:var(--bg3);border:1px solid var(--border);padding:5px 12px;border-radius:6px;cursor:pointer" onclick="doLogout()" title="Clique para sair">
+    <div style="width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
+    <span id="user-name-badge">—</span>
+    <span style="opacity:.5;margin-left:4px">sair</span>
+  </div>
+  <button id="panic-btn" onclick="triggerPanic()">⚡ Pânico</button>
+</header>
+
+<!-- MAIN -->
+<main>
+
+  <!-- ══════════ COMERCIAL ══════════ -->
+  <div id="view-comercial" class="view on">
+
+
+    <!-- TABELA RESUMO -->
+    <div class="summary-wrap">
+      <div class="section-title" style="margin-bottom:10px">Preços de Referência — SE/CO · hoje</div>
+      <div class="summary-grid" id="summary-grid">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+
+    <div class="page-title">Simulador de Preço</div>
+    <div class="page-sub">Selecione os parâmetros e os períodos de fornecimento para obter o preço de referência.</div>
+
+    <div class="card">
+
+      <!-- Linha 1: Contraparte + Comentários -->
+      <div class="card-row">
+        <div class="field" style="flex:1;min-width:220px">
+          <label>Contraparte</label>
+          <input type="text" id="contraparte" placeholder="Nome da empresa..." />
+        </div>
+        <div class="field" style="min-width:160px;max-width:200px">
+          <label>CNPJ</label>
+          <input type="text" id="cnpj" placeholder="00.000.000/0000-00"
+            oninput="formatCNPJ(this)" maxlength="18"/>
+        </div>
+        <div class="field" style="flex:2;min-width:260px">
+          <label>Comentários</label>
+          <textarea id="comentarios" placeholder="Observações da negociação..."></textarea>
+        </div>
+      </div>
+
+      <hr class="sep">
+
+      <!-- Linha 2: Posição / Submercado / Fonte / Tipo de Proposta -->
+      <div class="card-row">
+        <div class="field">
+          <label>Posição</label>
+          <div class="pills" id="g-posicao">
+            <div class="pill" onclick="pick('posicao','compra',this,'p-buy')">Compra</div>
+            <div class="pill" onclick="pick('posicao','venda',this,'p-sell')">Venda</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Submercado</label>
+          <div class="pills" id="g-sub">
+            <div class="pill" onclick="pick('sub','SE/CO',this,'p-sub')">SE/CO</div>
+            <div class="pill" onclick="pick('sub','S',this,'p-sub')">S</div>
+            <div class="pill" onclick="pick('sub','NE',this,'p-sub')">NE</div>
+            <div class="pill" onclick="pick('sub','N',this,'p-sub')">N</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Fonte</label>
+          <div class="pills" id="g-src">
+            <div class="pill" onclick="pick('src','Conv',this,'p-src')">Conv</div>
+            <div class="pill" onclick="pick('src','I5',this,'p-src')">I5</div>
+            <div class="pill" onclick="pick('src','I1',this,'p-src')">I1</div>
+            <div class="pill" onclick="pick('src','I0',this,'p-src')">I0</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Tipo de Proposta</label>
+          <div class="pills" id="g-tipo">
+            <div class="pill" onclick="pick('tipo','firme',this,'p-firm')">Firme</div>
+            <div class="pill" onclick="pick('tipo','indicativa',this,'p-indic')">Indicativa</div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="sep">
+
+
+      <hr class="sep">
+
+      <!-- Flex e Sazo -->
+      <div class="params-card" style="margin-bottom:0;border:none;padding:0;background:transparent;gap:24px;align-items:flex-start;">
+
+        <!-- Flex -->
+        <div class="params-group">
+          <label>Flexibilidade (+/− %)</label>
+          <div class="params-row">
+            <input class="params-input" type="number" step="5" min="0" max="50" placeholder="0"
+              id="flexPct" oninput="params.flexPct=this.value;calcPremium()">
+            <span class="params-sep">%</span>
+          </div>
+        </div>
+
+        <!-- Sazo -->
+        <div class="params-group">
+          <label>Sazonalidade (+/− %)</label>
+          <div class="params-row">
+            <input class="params-input" type="number" step="5" min="0" max="30" placeholder="0"
+              id="sazoPct" oninput="params.sazoPct=this.value;calcPremium()">
+            <span class="params-sep">%</span>
+          </div>
+        </div>
+
+        <!-- Cenário de volatilidade -->
+        <div class="params-group">
+          <label>Cenário de Vol.</label>
+          <div class="pills" id="g-vol" style="gap:6px">
+            <div class="pill p-vol" onclick="pickVol(0.30,this)" title="30% — muito otimista">C1 30%</div>
+            <div class="pill p-vol" onclick="pickVol(0.50,this)" title="50% — otimista">C2 50%</div>
+            <div class="pill p-vol active-vol" onclick="pickVol(1.06,this)" title="106% — base recomendado">C3 106%</div>
+            <div class="pill p-vol" onclick="pickVol(1.52,this)" title="152% — conservador">C4 152%</div>
+          </div>
+        </div>
+
+        <!-- Resultado do prêmio -->
+        <div class="premium-result" id="premium-result" style="display:none">
+          <div class="prem-row">
+            <span class="prem-label">Prêmio Flex</span>
+            <span class="prem-val" id="prem-flex">—</span>
+          </div>
+          <div class="prem-row">
+            <span class="prem-label">Prêmio Sazo</span>
+            <span class="prem-val" id="prem-sazo">—</span>
+          </div>
+          <div class="prem-row total">
+            <span class="prem-label">Total Prêmio</span>
+            <span class="prem-val" id="prem-total">—</span>
+          </div>
+          <div class="prem-note" id="prem-note"></div>
+        </div>
+      </div>
+
+      <!-- Períodos -->
+      <div class="section-title">Períodos de Fornecimento</div>
+      <div class="periods-wrap" id="periods-wrap"></div>
+      <button class="add-period-btn" id="add-period-btn" onclick="addPeriod()">
+        + Adicionar período
+      </button>
+
+      <hr class="sep">
+
+      <!-- Resultados -->
+      <div class="section-title">Preço Calculado — R$/MWh (média ponderada por horas)</div>
+      <div class="results-grid" id="results-grid"></div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;gap:10px;">
+        <button class="btn-export" onclick="exportDocx()">
+          <span>📄</span> Exportar Proposta (Word)
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════ ADMIN ══════════ -->
+  <div id="view-admin" class="view">
+
+    <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:12px">
+      <button class="tab-btn active" onclick="showAdminTab('prices',this)" id="atab-prices">Preços</button>
+      <button class="tab-btn" onclick="showAdminTab('users',this)" id="atab-users">Usuários</button>
+      <button class="tab-btn" onclick="showAdminTab('logs',this)" id="atab-logs">Log de Acesso</button>
+      <button class="tab-btn" onclick="showAdminTab('proposals',this)" id="atab-proposals">Propostas</button>
+    </div>
+    <div id="admin-tab-prices">
+    <div class="page-title">Gestão de Preços Base</div>
+    <div class="page-sub">Atualize os preços de compra e venda por submercado e fonte. Os dados ficam disponíveis imediatamente para o time comercial.</div>
+
+    <div class="admin-bar">
+      <button class="btn btn-green" onclick="savePrices()">Salvar</button>
+      <button class="btn btn-orange" onclick="alertTeam()">📢 Alertar Time</button>
+      <button class="btn btn-ghost" onclick="exportCSV()">↗ Exportar CSV</button>
+      <span class="save-ok" id="save-ok">✓ Salvo</span>
+    </div>
+
+    <div class="filter-strip">
+      <span class="label">Submercado</span>
+      <button class="ftag on" onclick="setAdminSub('SE/CO',this)">SE/CO</button>
+      <button class="ftag" onclick="setAdminSub('S',this)">S</button>
+      <button class="ftag" onclick="setAdminSub('NE',this)">NE</button>
+      <button class="ftag" onclick="setAdminSub('N',this)">N</button>
+    </div>
+    <div class="filter-strip">
+      <span class="label">Fonte</span>
+      <button class="ftag on" onclick="setAdminSrc('Conv',this)">Conv</button>
+      <button class="ftag" onclick="setAdminSrc('I5',this)">I5</button>
+      <button class="ftag" onclick="setAdminSrc('I1',this)">I1</button>
+      <button class="ftag" onclick="setAdminSrc('I0',this)">I0</button>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="tbl-wrap">
+        <table class="ptable" id="ptable"></table>
+      </div>
+    </div>
+
+    <!-- USER MANAGEMENT -->
+    <div style="margin-top:32px">
+      <div class="section-title" style="margin-bottom:12px">Gestão de Usuários</div>
+      <div class="card" style="padding:20px 24px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px">
+          <div class="field" style="min-width:220px">
+            <label>E-mail</label>
+            <input type="email" id="new-user-email" placeholder="funcionario@triaenergia.com.br"
+              style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;color:var(--text);font-family:Inter,sans-serif;font-size:13px;width:100%">
+          </div>
+          <div class="field" style="min-width:140px">
+            <label>Nome</label>
+            <input type="text" id="new-user-name" placeholder="Nome Sobrenome"
+              style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;color:var(--text);font-family:Inter,sans-serif;font-size:13px;width:100%">
+          </div>
+          <div class="field" style="min-width:100px">
+            <label>PIN (4 dígitos)</label>
+            <input type="text" id="new-user-pin" placeholder="1234" maxlength="4"
+              inputmode="numeric" pattern="[0-9]*"
+              oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+              style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;width:100%;letter-spacing:4px;text-align:center">
+          </div>
+          <div class="field" style="min-width:100px">
+            <label>Perfil</label>
+            <select id="new-user-role"
+              style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;color:var(--text);font-family:Inter,sans-serif;font-size:13px;width:100%">
+              <option value="user">Comercial</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <button class="btn btn-green" onclick="saveNewUser()">Adicionar</button>
+        </div>
+        <div id="user-list" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">
+          Carregando usuários...
+        </div>
+      </div>
+    </div>
+
+    </div><!-- end admin-tab-prices -->
+
+    <!-- USERS TAB -->
+    <div id="admin-tab-users" style="display:none">
+      <div class="page-title">Gestão de Usuários</div>
+      <div class="page-sub">Cadastre e gerencie os acessos ao Tria Price.</div>
+      <div class="card" style="padding:20px 24px;margin-bottom:20px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 120px 140px auto;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+          <div class="field"><label>E-mail</label><input type="email" id="new-user-email" placeholder="funcionario@triaenergia.com.br" style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;width:100%"></div>
+          <div class="field"><label>Nome</label><input type="text" id="new-user-name" placeholder="Nome Sobrenome" style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;width:100%"></div>
+          <div class="field"><label>PIN</label><input type="text" id="new-user-pin" placeholder="1234" maxlength="4" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')" style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;width:100%;letter-spacing:4px;text-align:center"></div>
+          <div class="field"><label>Perfil</label><select id="new-user-role" style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;width:100%"><option value="comercial">Comercial</option><option value="admin">Admin</option><option value="visualizacao">Visualização</option></select></div>
+          <button class="btn btn-green" onclick="saveNewUser()" style="height:38px">+ Adicionar</button>
+        </div>
+        <div id="user-list" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">Carregando...</div>
+      </div>
+    </div>
+
+    <!-- ACCESS LOG TAB -->
+    <div id="admin-tab-logs" style="display:none">
+      <div class="page-title">Log de Acesso</div>
+      <div class="page-sub">Registro de entradas e saídas do sistema.</div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="overflow-x:auto;max-height:500px" id="access-log-content">
+          <div style="padding:20px;color:var(--muted);font-family:'DM Mono',monospace;font-size:12px">Carregando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROPOSALS LOG TAB -->
+    <div id="admin-tab-proposals" style="display:none">
+      <div class="page-title">Histórico de Propostas</div>
+      <div class="page-sub">Todas as propostas geradas pelo time comercial.</div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="overflow-x:auto;max-height:500px" id="proposals-log-content">
+          <div style="padding:20px;color:var(--muted);font-family:'DM Mono',monospace;font-size:12px">Carregando...</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<script>
+
+// ════════════════════════════════════
+// SUPABASE CONFIG
+// ════════════════════════════════════
+const SUPABASE_URL = 'https://nmmhxbqqgyooojyvlubz.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5tbWh4YnFxZ3lvb29qeXZsdWJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4ODM5MTksImV4cCI6MjA5MzQ1OTkxOX0.d5DdNqkQ0O2MlDnhRIn_44uRtx1f_6T4cj6Xi6JEd58';
+
+// Supabase REST helper
+async function sbFetch(path, method, body) {
+  const opts = {
+    method: method || 'GET',
+    mode: 'cors',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, opts);
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error('HTTP ' + res.status + ': ' + err);
+    }
+    const ct = res.headers.get('content-type') || '';
+    return ct.includes('json') ? res.json() : null;
+  } catch(e) {
+    if (e.message.includes('fetch')) {
+      throw new Error('Erro de conexão com o servidor. Verifique sua internet.');
+    }
+    throw e;
+  }
+}
+
+// Simple PIN hash (SHA-256)
+async function hashPIN(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// ════════════════════════════════════
+// AUTH — LOGIN / LOGOUT (Supabase)
+// ════════════════════════════════════
+let currentUser = null;
+
+async function doLogin() {
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  try {
+    const email = (document.getElementById('login-email').value || '').trim().toLowerCase();
+    const pin   = (document.getElementById('login-pin').value  || '').trim();
+    if (!email) { errEl.textContent = 'Informe o e-mail.'; return; }
+    if (!pin || pin.length !== 4) { errEl.textContent = 'PIN deve ter 4 dígitos.'; return; }
+
+    // Hash PIN client-side and query directly
+    const pinHash = await hashPIN(pin);
+    const users = await sbFetch('tp_users?email=eq.' + encodeURIComponent(email) + '&pin_hash=eq.' + pinHash + '&active=eq.true&select=id,email,name,role');
+    if (!users || users.length === 0) {
+      errEl.textContent = 'E-mail ou PIN incorretos.';
+      await logAccess(null, email, 'login_failed');
+      return;
+    }
+    const user = users[0];
+
+    // Success
+    currentUser = { id: user.id, email: user.email, name: user.name, role: user.role };
+    localStorage.setItem('tp_session', JSON.stringify(currentUser));
+
+    await logAccess(user.id, user.email, 'login_ok', user.name);
+
+    const ls = document.getElementById('login-screen');
+    if (ls) ls.style.display = 'none';
+    document.getElementById('user-badge').style.display = 'flex';
+    document.getElementById('user-name-badge').textContent = user.name;
+
+    // Role-based UI
+    const adminTab = document.querySelector('.nav-tab[onclick*="admin"]');
+    if (adminTab) adminTab.style.display = (user.role === 'admin') ? '' : 'none';
+    
+    // Visualização cannot generate proposals
+    const genBtn = document.querySelector('button[onclick*="exportDocx"]');
+    if (genBtn && user.role === 'visualizacao') genBtn.style.display = 'none';
+
+    toast('Bem-vindo, ' + user.name + '!');
+
+  } catch(err) {
+    console.error('Login error:', err);
+    if (err.message.includes('conexão') || err.message.includes('fetch') || err.message.includes('Failed')) {
+      errEl.textContent = 'Erro de conexão com o servidor.';
+    } else {
+      errEl.textContent = 'Erro: ' + err.message.substring(0, 80);
+    }
+  }
+}
+
+async function doLogout() {
+  if (!confirm('Sair do Tria Price?')) return;
+  if (currentUser) await logAccess(currentUser.id, currentUser.email, 'logout', currentUser.name);
+  currentUser = null;
+  localStorage.removeItem('tp_session');
+  const ls = document.getElementById('login-screen');
+  if (ls) ls.style.display = 'flex';
+  document.getElementById('user-badge').style.display = 'none';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pin').value = '';
+  document.getElementById('login-error').textContent = '';
+  const adminTab = document.querySelector('.nav-tab[onclick*="admin"]');
+  if (adminTab) adminTab.style.display = '';
+}
+
+async function logAccess(userId, email, event, name) {
+  try {
+    await sbFetch('tp_access_log', 'POST', {
+      user_id: userId || null,
+      email: email,
+      name: name || null,
+      event: event,
+      user_agent: navigator.userAgent.substring(0, 120)
+    });
+  } catch(e) { console.warn('Log error:', e); }
+}
+
+// ════════════════════════════════════
+// LOG PROPOSAL GENERATION
+// ════════════════════════════════════
+async function logProposal(data) {
+  if (!currentUser) return;
+  try {
+    await sbFetch('tp_proposals', 'POST', {
+      user_id: currentUser.id,
+      user_name: currentUser.name,
+      user_email: currentUser.email,
+      tipo: data.tipo,
+      posicao: data.posicao,
+      contraparte: data.contraparte,
+      cnpj: data.cnpj || null,
+      submercado: data.sub,
+      fonte: data.src,
+      periodos: data.periodos,
+      preco_medio: data.precoMedio
+    });
+  } catch(e) { console.warn('Proposal log error:', e); }
+}
+
+// ════════════════════════════════════
+// USER MANAGEMENT (Admin)
+// ════════════════════════════════════
+async function loadUsers() {
+  return await sbFetch('tp_users?order=name&select=id,email,name,role,active,created_at');
+}
+
+async function saveNewUser() {
+  const email = document.getElementById('new-user-email').value.trim().toLowerCase();
+  const name  = document.getElementById('new-user-name').value.trim();
+  const pin   = document.getElementById('new-user-pin').value.trim();
+  const role  = document.getElementById('new-user-role').value;
+  if (!email || !name || pin.length !== 4) { toast('Preencha e-mail, nome e PIN de 4 dígitos'); return; }
+  try {
+    const pinHash = await hashPIN(pin);
+    await sbFetch('tp_users', 'POST', {
+      email, name, role, pin_hash: pinHash,
+      created_by: currentUser?.id || null
+    });
+    document.getElementById('new-user-email').value = '';
+    document.getElementById('new-user-name').value  = '';
+    document.getElementById('new-user-pin').value   = '';
+    await renderUserList();
+    toast('Usuário salvo');
+  } catch(e) {
+    toast('Erro: ' + (e.message.includes('unique') ? 'E-mail já cadastrado' : e.message));
+  }
+}
+
+async function removeUser(id) {
+  if (id === currentUser?.id) { toast('Não pode remover o usuário logado'); return; }
+  if (!confirm('Desativar este usuário?')) return;
+  await sbFetch('tp_users?id=eq.' + id, 'PATCH', { active: false });
+  await renderUserList();
+  toast('Usuário desativado');
+}
+
+async function renderUserList() {
+  const el = document.getElementById('user-list');
+  if (!el) return;
+  try {
+    const users = await loadUsers();
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse">' +
+      '<thead><tr>' +
+        '<th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">E-MAIL</th>' +
+        '<th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">NOME</th>' +
+        '<th style="padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">PERFIL</th>' +
+        '<th style="padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">AÇÃO</th>' +
+      '</tr></thead><tbody>' +
+      users.map(function(u) {
+        var roleColor = u.role==='admin'?'var(--blue)':u.role==='comercial'?'var(--green)':'var(--muted2)';
+        return '<tr>' +
+          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);font-family:monospace;font-size:11px;color:var(--text)">' + u.email + '</td>' +
+          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text)">' + u.name + '</td>' +
+          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:center">' +
+            '<span style="background:rgba(0,0,0,.2);color:'+roleColor+';border-radius:4px;padding:2px 8px;font-size:10px;font-family:monospace">' + u.role + '</span>' +
+          '</td>' +
+          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:center">' +
+            (u.active ? '<button onclick="removeUser(\'' + u.id + '\')" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:11px;padding:3px 10px;cursor:pointer">desativar</button>' : '<span style="color:var(--muted);font-size:11px">inativo</span>') +
+          '</td>' +
+        '</tr>';
+      }).join('') +
+      '</tbody></table>';
+  } catch(e) { el.textContent = 'Erro ao carregar usuários: ' + e.message; }
+}
+
+// ════════════════════════════════════
+// ACCESS LOG VIEWER (Admin)
+// ════════════════════════════════════
+async function renderAccessLog() {
+  const el = document.getElementById('access-log-content');
+  if (!el) return;
+  try {
+    const logs = await sbFetch('tp_access_log?order=ts.desc&limit=100&select=ts,name,email,event');
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:11px">' +
+      '<thead><tr>' +
+        ['Data/Hora','Usuário','E-mail','Evento'].map(h =>
+          '<th style="text-align:left;padding:5px 8px;color:var(--muted);font-size:10px;border-bottom:1px solid var(--border)">' + h + '</th>'
+        ).join('') +
+      '</tr></thead><tbody>' +
+      logs.map(function(l) {
+        var evColor = l.event==='login_ok'?'var(--green)':l.event==='logout'?'var(--muted)':'var(--sell)';
+        var dt = new Date(l.ts).toLocaleString('pt-BR');
+        return '<tr>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border);color:var(--muted2)">' + dt + '</td>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border)">' + (l.name||'—') + '</td>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border);color:var(--muted)">' + (l.email||'—') + '</td>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border);color:' + evColor + '">' + l.event + '</td>' +
+        '</tr>';
+      }).join('') +
+      '</tbody></table>';
+  } catch(e) { el.textContent = 'Erro: ' + e.message; }
+}
+
+// ════════════════════════════════════
+// PROPOSALS LOG VIEWER (Admin)
+// ════════════════════════════════════
+async function renderProposalsLog() {
+  const el = document.getElementById('proposals-log-content');
+  if (!el) return;
+  try {
+    const props = await sbFetch('tp_proposals?order=ts.desc&limit=100&select=ts,user_name,tipo,posicao,contraparte,submercado,fonte,preco_medio');
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+      '<thead><tr>' +
+        ['Data/Hora','Usuário','Tipo','Posição','Contraparte','Sub','Fonte','Preço'].map(h =>
+          '<th style="text-align:left;padding:5px 8px;color:var(--muted);font-size:10px;border-bottom:1px solid var(--border)">' + h + '</th>'
+        ).join('') +
+      '</tr></thead><tbody>' +
+      props.map(function(p) {
+        var tipoColor = p.tipo==='Firme'?'var(--blue)':'var(--yellow)';
+        var dt = new Date(p.ts).toLocaleString('pt-BR');
+        return '<tr>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border);font-family:monospace;font-size:10px;color:var(--muted2)">' + dt + '</td>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border)">' + (p.user_name||'—') + '</td>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border);color:' + tipoColor + '">' + (p.tipo||'—') + '</td>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border)">' + (p.posicao||'—') + '</td>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border)">' + (p.contraparte||'—') + '</td>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border)">' + (p.submercado||'—') + '</td>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border)">' + (p.fonte||'—') + '</td>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border);font-family:monospace;color:var(--green)">' + (p.preco_medio ? 'R$ '+parseFloat(p.preco_medio).toFixed(2) : '—') + '</td>' +
+        '</tr>';
+      }).join('') +
+      '</tbody></table>';
+  } catch(e) { el.textContent = 'Erro: ' + e.message; }
+}
+
+
+// ════════════════════════════════════
+// STATE
+// ════════════════════════════════════
+const SUBS  = ['SE/CO','S','NE','N'];
+const SRCS  = ['Conv','I5','I1','I0'];
+const MOS   = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const MAX_PERIODS = 10;
+const INIT_PERIODS = 4;
+
+function hoursInMonth(y, m) {
+  const leap = (y%4===0&&y%100!==0)||y%400===0;
+  const days = [31,leap?29:28,31,30,31,30,31,31,30,31,30,31];
+  return days[m-1] * 24;
+}
+
+// Flat monthly list for selectors: Jan/2026 to Dez/2040 (always monthly)
+function buildMonthKeys() {
+  const out = [];
+  for (let y=2026; y<=2040; y++) {
+    const mStart = (y === 2026) ? 4 : 1; // starts abr/2026
+    for (let m=mStart; m<=12; m++)
+      out.push({ y, m,
+        key: `${y}-${String(m).padStart(2,'0')}`,
+        label: `${MOS[m-1]}/${y}`,
+        hours: hoursInMonth(y,m) });
+  }
+  return out;
+}
+const MONTH_KEYS = buildMonthKeys();
+
+function getMinSelectableKey() {
+  const now = new Date();
+  let y = now.getFullYear(), m = now.getMonth(); // 0-based = prev month
+  if (m === 0) { m = 12; y--; }
+  if (y < 2026 || (y === 2026 && m < 4)) { y = 2026; m = 4; }
+  return y + '-' + String(m).padStart(2,'0');
+}
+
+// Admin price table periods: monthly 2026-2028, annual 2029-2040
+function buildAdminPeriods() {
+  const out = [];
+  for (let y=2026; y<=2028; y++)
+    for (let m=1; m<=12; m++)
+      out.push({ type:'m', y, m,
+        key: `${y}-${String(m).padStart(2,'0')}`,
+        label: `${MOS[m-1]}/${y}`,
+        hours: hoursInMonth(y,m) });
+  for (let y=2029; y<=2040; y++)
+    out.push({ type:'y', y,
+      key: `${y}`, label: `${y}`, hours: 8760 });
+  return out;
+}
+const ADMIN_PERIODS = buildAdminPeriods();
+
+// Price lookup key: 2026-2028 uses monthly key, 2029+ uses annual "YYYY"
+function priceKey(monthKey) {
+  const y = parseInt(monthKey.split('-')[0]);
+  return y <= 2028 ? monthKey : `${y}`;
+}
+
+// Expand start to end (both monthly keys) into list of month objects
+function expandRange(startKey, endKey) {
+  if (!startKey || !endKey) return [];
+  const si = MONTH_KEYS.findIndex(p=>p.key===startKey);
+  const ei = MONTH_KEYS.findIndex(p=>p.key===endKey);
+  if (si<0 || ei<0 || si>ei) return [];
+  return MONTH_KEYS.slice(si, ei+1);
+}
+
+// Weighted average: pondera por MWh = horas × volume (MWmed)
+// volumes: array de floats alinhados com monthList; se null, usa só horas
+function calcWAvg(monthList, sub, src, side, volumes) {
+  let totalValue = 0, totalMWh = 0;
+  for (let i=0; i<monthList.length; i++) {
+    const p = monthList[i];
+    const pk = priceKey(p.key);
+    const pv = getP(sub, src, pk);
+    const val = pv[side];
+    if (val === null || val === undefined) return null;
+    const vol = (volumes && volumes[i] != null && volumes[i] !== '') ? parseFloat(volumes[i]) : 1;
+    const mwh = p.hours * vol;
+    totalValue += val * mwh;
+    totalMWh  += mwh;
+  }
+  if (totalMWh === 0) return null;
+  return totalValue / totalMWh;
+}
+
+// Get volumes array for a period row (aligned with expandRange result)
+function getVolumes(rowIdx, monthList) {
+  const row = periodRows[rowIdx];
+  return monthList.map((p, i) => {
+    const v = row.volumes ? row.volumes[p.key] : null;
+    return (v !== undefined && v !== '') ? parseFloat(v) : null;
+  });
+}
+
+// Total MWh for a period row
+function totalMWh(rowIdx, monthList) {
+  let total = 0;
+  const row = periodRows[rowIdx];
+  for (const p of monthList) {
+    const vol = row.volumes?.[p.key];
+    const v = (vol !== undefined && vol !== '') ? parseFloat(vol) : null;
+    if (v === null) return null;
+    total += p.hours * v;
+  }
+  return total;
+}
+
+let prices = {};
+let lastUpdate = null;
+let panicOn = false;
+let adminSub = 'SE/CO';
+let adminSrc = 'Conv';
+
+// Comercial state
+const sel = { posicao:null, sub:null, src:null, tipo:null };
+const periodRows = [];
+const params = {
+  flexPct: 0, sazoPct: 0, vol: 0.50
+};
+
+// Non-standard: flags when a period in the 2029+ zone does not start Jan or end Dec
+// (since prices are annual, partial years need Mesa de Operações)
+function isNonStandard(startKey, endKey) {
+  if (!startKey || !endKey) return false;
+  const sy = parseInt(startKey.split('-')[0]);
+  const sm = parseInt(startKey.split('-')[1]);
+  const ey = parseInt(endKey.split('-')[0]);
+  const em = parseInt(endKey.split('-')[1]);
+  // No annual zone involved at all
+  if (sy <= 2028 && ey <= 2028) return false;
+  // Starts inside annual zone: must start in January
+  if (sy >= 2029 && sm !== 1) return true;
+  // Ends inside annual zone: must end in December
+  if (ey >= 2029 && em !== 12) return true;
+  return false;
+}
+
+// ════════════════════════════════════
+// STORAGE
+// ════════════════════════════════════
+
+// ════════════════════════════════════
+// PRELOADED PRICES (from LP 24/04/2026)
+// ════════════════════════════════════
+const AGENTS = [];
+
+const CP_SPREADS = {
+  'SE/CO': { Conv: {buy:3.5, sell:4.5}, I5: {buy:30, sell:34}, I0: null, I1: null, CQ5: {buy:29, sell:null} },
+  'S':     { Conv: {buy:3.5, sell:4.5}, I5: {buy:30, sell:34}, I0: null, I1: null, CQ5: null },
+  'NE':    { Conv: null, I5: null, I0: null, I1: null, CQ5: null },
+  'N':     { Conv: null, I5: null, I0: null, I1: null, CQ5: null }
+};
+const PRELOADED_PRICES = {"SE/CO":{"Conv":{"2026-05":{"buy":250,"sell":260},"2026-06":{"buy":235,"sell":250},"2026-07":{"buy":240,"sell":260},"2026-08":{"buy":260,"sell":295},"2026-09":{"buy":290,"sell":305},"2026-10":{"buy":310,"sell":335},"2026-11":{"buy":310,"sell":335},"2026-12":{"buy":310,"sell":335},"2027-01":{"buy":272,"sell":285},"2027-02":{"buy":272,"sell":285},"2027-03":{"buy":272,"sell":285},"2027-04":{"buy":272,"sell":285},"2027-05":{"buy":272,"sell":285},"2027-06":{"buy":272,"sell":285},"2027-07":{"buy":272,"sell":285},"2027-08":{"buy":272,"sell":285},"2027-09":{"buy":272,"sell":285},"2027-10":{"buy":272,"sell":285},"2027-11":{"buy":272,"sell":285},"2027-12":{"buy":272,"sell":285},"2028-01":{"buy":240,"sell":260},"2028-02":{"buy":240,"sell":260},"2028-03":{"buy":240,"sell":260},"2028-04":{"buy":240,"sell":260},"2028-05":{"buy":240,"sell":260},"2028-06":{"buy":240,"sell":260},"2028-07":{"buy":240,"sell":260},"2028-08":{"buy":240,"sell":260},"2028-09":{"buy":240,"sell":260},"2028-10":{"buy":240,"sell":260},"2028-11":{"buy":240,"sell":260},"2028-12":{"buy":240,"sell":260},"2029":{"buy":220,"sell":235},"2030":{"buy":175,"sell":210},"2031":{"buy":150,"sell":185},"2032":{"buy":140,"sell":170},"2033":{"buy":137,"sell":165},"2034":{"buy":137,"sell":165},"2035":{"buy":133,"sell":165},"2036":{"buy":129,"sell":162},"2037":{"buy":128,"sell":158.41},"2038":{"buy":127,"sell":158.41},"2039":{"buy":127,"sell":158.41},"2040":{"buy":127,"sell":158.41},"2026-04":{"buy":211.38,"sell":211.38}},"I0":{"2026-05":{"buy":251,"sell":263},"2026-06":{"buy":236,"sell":253},"2026-07":{"buy":241,"sell":263},"2026-08":{"buy":261,"sell":298},"2026-09":{"buy":291,"sell":308},"2026-10":{"buy":311,"sell":338},"2026-11":{"buy":311,"sell":338},"2026-12":{"buy":311,"sell":338},"2027-01":{"buy":273,"sell":287},"2027-02":{"buy":273,"sell":287},"2027-03":{"buy":273,"sell":287},"2027-04":{"buy":273,"sell":287},"2027-05":{"buy":273,"sell":287},"2027-06":{"buy":273,"sell":287},"2027-07":{"buy":273,"sell":287},"2027-08":{"buy":273,"sell":287},"2027-09":{"buy":273,"sell":287},"2027-10":{"buy":273,"sell":287},"2027-11":{"buy":273,"sell":287},"2027-12":{"buy":273,"sell":287},"2028-01":{"buy":241,"sell":262},"2028-02":{"buy":241,"sell":262},"2028-03":{"buy":241,"sell":262},"2028-04":{"buy":241,"sell":262},"2028-05":{"buy":241,"sell":262},"2028-06":{"buy":241,"sell":262},"2028-07":{"buy":241,"sell":262},"2028-08":{"buy":241,"sell":262},"2028-09":{"buy":241,"sell":262},"2028-10":{"buy":241,"sell":262},"2028-11":{"buy":241,"sell":262},"2028-12":{"buy":241,"sell":262},"2029":{"buy":221,"sell":237},"2030":{"buy":176,"sell":212},"2031":{"buy":151,"sell":187},"2032":{"buy":141,"sell":172},"2033":{"buy":138,"sell":167},"2034":{"buy":138,"sell":167},"2035":{"buy":134,"sell":167},"2036":{"buy":130,"sell":164},"2037":{"buy":129,"sell":160.41},"2038":{"buy":128,"sell":160.41},"2039":{"buy":128,"sell":160.41},"2040":{"buy":128,"sell":160.41},"2026-04":{"buy":212.38,"sell":213.38}},"I5":{"2026-05":{"buy":274,"sell":290},"2026-06":{"buy":259,"sell":280},"2026-07":{"buy":264,"sell":290},"2026-08":{"buy":284,"sell":325},"2026-09":{"buy":314,"sell":335},"2026-10":{"buy":334,"sell":365},"2026-11":{"buy":334,"sell":365},"2026-12":{"buy":334,"sell":365},"2027-01":{"buy":297,"sell":318},"2027-02":{"buy":297,"sell":318},"2027-03":{"buy":297,"sell":318},"2027-04":{"buy":297,"sell":318},"2027-05":{"buy":297,"sell":318},"2027-06":{"buy":297,"sell":318},"2027-07":{"buy":297,"sell":318},"2027-08":{"buy":297,"sell":318},"2027-09":{"buy":297,"sell":318},"2027-10":{"buy":297,"sell":318},"2027-11":{"buy":297,"sell":318},"2027-12":{"buy":297,"sell":318},"2028-01":{"buy":265,"sell":292},"2028-02":{"buy":265,"sell":292},"2028-03":{"buy":265,"sell":292},"2028-04":{"buy":265,"sell":292},"2028-05":{"buy":265,"sell":292},"2028-06":{"buy":265,"sell":292},"2028-07":{"buy":265,"sell":292},"2028-08":{"buy":265,"sell":292},"2028-09":{"buy":265,"sell":292},"2028-10":{"buy":265,"sell":292},"2028-11":{"buy":265,"sell":292},"2028-12":{"buy":265,"sell":292},"2029":{"buy":245,"sell":265},"2030":{"buy":200,"sell":240},"2031":{"buy":173,"sell":215},"2032":{"buy":162,"sell":200},"2033":{"buy":157,"sell":195},"2034":{"buy":157,"sell":195},"2035":{"buy":153,"sell":195},"2036":{"buy":149,"sell":192},"2037":{"buy":148,"sell":188.41},"2038":{"buy":147,"sell":188.41},"2039":{"buy":147,"sell":188.41},"2040":{"buy":147,"sell":188.41},"2026-04":{"buy":235.38,"sell":241.38}},"I1":{"2026-05":{"buy":420,"sell":460},"2026-06":{"buy":405,"sell":450},"2026-07":{"buy":410,"sell":460},"2026-08":{"buy":430,"sell":495},"2026-09":{"buy":460,"sell":505},"2026-10":{"buy":480,"sell":535},"2026-11":{"buy":480,"sell":535},"2026-12":{"buy":480,"sell":535},"2027-01":{"buy":442,"sell":485},"2027-02":{"buy":442,"sell":485},"2027-03":{"buy":442,"sell":485},"2027-04":{"buy":442,"sell":485},"2027-05":{"buy":442,"sell":485},"2027-06":{"buy":442,"sell":485},"2027-07":{"buy":442,"sell":485},"2027-08":{"buy":442,"sell":485},"2027-09":{"buy":442,"sell":485},"2027-10":{"buy":442,"sell":485},"2027-11":{"buy":442,"sell":485},"2027-12":{"buy":442,"sell":485},"2028-01":{"buy":410,"sell":460},"2028-02":{"buy":410,"sell":460},"2028-03":{"buy":410,"sell":460},"2028-04":{"buy":410,"sell":460},"2028-05":{"buy":410,"sell":460},"2028-06":{"buy":410,"sell":460},"2028-07":{"buy":410,"sell":460},"2028-08":{"buy":410,"sell":460},"2028-09":{"buy":410,"sell":460},"2028-10":{"buy":410,"sell":460},"2028-11":{"buy":410,"sell":460},"2028-12":{"buy":410,"sell":460},"2029":{"buy":390,"sell":435},"2030":{"buy":345,"sell":410},"2031":{"buy":320,"sell":385},"2032":{"buy":310,"sell":370},"2033":{"buy":307,"sell":365},"2034":{"buy":307,"sell":365},"2035":{"buy":303,"sell":365},"2036":{"buy":299,"sell":362},"2037":{"buy":298,"sell":358.41},"2038":{"buy":297,"sell":358.41},"2039":{"buy":297,"sell":358.41},"2040":{"buy":297,"sell":358.41},"2026-04":{"buy":381.38,"sell":411.38}}},"S":{"Conv":{"2026-05":{"buy":245,"sell":300},"2026-06":{"buy":230,"sell":260},"2026-07":{"buy":240,"sell":260},"2026-08":{"buy":260,"sell":295},"2026-09":{"buy":290,"sell":305},"2026-10":{"buy":310,"sell":335},"2026-11":{"buy":310,"sell":335},"2026-12":{"buy":310,"sell":335},"2027-01":{"buy":272,"sell":285},"2027-02":{"buy":272,"sell":285},"2027-03":{"buy":272,"sell":285},"2027-04":{"buy":272,"sell":285},"2027-05":{"buy":272,"sell":285},"2027-06":{"buy":272,"sell":285},"2027-07":{"buy":272,"sell":285},"2027-08":{"buy":272,"sell":285},"2027-09":{"buy":272,"sell":285},"2027-10":{"buy":272,"sell":285},"2027-11":{"buy":272,"sell":285},"2027-12":{"buy":272,"sell":285},"2028-01":{"buy":240,"sell":260},"2028-02":{"buy":240,"sell":260},"2028-03":{"buy":240,"sell":260},"2028-04":{"buy":240,"sell":260},"2028-05":{"buy":240,"sell":260},"2028-06":{"buy":240,"sell":260},"2028-07":{"buy":240,"sell":260},"2028-08":{"buy":240,"sell":260},"2028-09":{"buy":240,"sell":260},"2028-10":{"buy":240,"sell":260},"2028-11":{"buy":240,"sell":260},"2028-12":{"buy":240,"sell":260},"2029":{"buy":220,"sell":235},"2030":{"buy":175,"sell":210},"2031":{"buy":150,"sell":185},"2032":{"buy":140,"sell":170},"2033":{"buy":137,"sell":165},"2034":{"buy":137,"sell":165},"2035":{"buy":133,"sell":165},"2036":{"buy":129,"sell":162},"2037":{"buy":128,"sell":158.41},"2038":{"buy":127,"sell":158.41},"2039":{"buy":127,"sell":158.41},"2040":{"buy":127,"sell":158.41},"2026-04":{"buy":254.03,"sell":254.03}},"I0":{"2026-05":{"buy":246,"sell":303},"2026-06":{"buy":231,"sell":263},"2026-07":{"buy":241,"sell":263},"2026-08":{"buy":261,"sell":298},"2026-09":{"buy":291,"sell":308},"2026-10":{"buy":311,"sell":338},"2026-11":{"buy":311,"sell":338},"2026-12":{"buy":311,"sell":338},"2027-01":{"buy":273,"sell":287},"2027-02":{"buy":273,"sell":287},"2027-03":{"buy":273,"sell":287},"2027-04":{"buy":273,"sell":287},"2027-05":{"buy":273,"sell":287},"2027-06":{"buy":273,"sell":287},"2027-07":{"buy":273,"sell":287},"2027-08":{"buy":273,"sell":287},"2027-09":{"buy":273,"sell":287},"2027-10":{"buy":273,"sell":287},"2027-11":{"buy":273,"sell":287},"2027-12":{"buy":273,"sell":287},"2028-01":{"buy":241,"sell":262},"2028-02":{"buy":241,"sell":262},"2028-03":{"buy":241,"sell":262},"2028-04":{"buy":241,"sell":262},"2028-05":{"buy":241,"sell":262},"2028-06":{"buy":241,"sell":262},"2028-07":{"buy":241,"sell":262},"2028-08":{"buy":241,"sell":262},"2028-09":{"buy":241,"sell":262},"2028-10":{"buy":241,"sell":262},"2028-11":{"buy":241,"sell":262},"2028-12":{"buy":241,"sell":262},"2029":{"buy":221,"sell":237},"2030":{"buy":176,"sell":212},"2031":{"buy":151,"sell":187},"2032":{"buy":141,"sell":172},"2033":{"buy":138,"sell":167},"2034":{"buy":138,"sell":167},"2035":{"buy":134,"sell":167},"2036":{"buy":130,"sell":164},"2037":{"buy":129,"sell":160.41},"2038":{"buy":128,"sell":160.41},"2039":{"buy":128,"sell":160.41},"2040":{"buy":128,"sell":160.41},"2026-04":{"buy":255.03,"sell":256.03}},"I5":{"2026-05":{"buy":269,"sell":330},"2026-06":{"buy":254,"sell":290},"2026-07":{"buy":264,"sell":290},"2026-08":{"buy":284,"sell":325},"2026-09":{"buy":314,"sell":335},"2026-10":{"buy":334,"sell":365},"2026-11":{"buy":334,"sell":365},"2026-12":{"buy":334,"sell":365},"2027-01":{"buy":297,"sell":318},"2027-02":{"buy":297,"sell":318},"2027-03":{"buy":297,"sell":318},"2027-04":{"buy":297,"sell":318},"2027-05":{"buy":297,"sell":318},"2027-06":{"buy":297,"sell":318},"2027-07":{"buy":297,"sell":318},"2027-08":{"buy":297,"sell":318},"2027-09":{"buy":297,"sell":318},"2027-10":{"buy":297,"sell":318},"2027-11":{"buy":297,"sell":318},"2027-12":{"buy":297,"sell":318},"2028-01":{"buy":265,"sell":292},"2028-02":{"buy":265,"sell":292},"2028-03":{"buy":265,"sell":292},"2028-04":{"buy":265,"sell":292},"2028-05":{"buy":265,"sell":292},"2028-06":{"buy":265,"sell":292},"2028-07":{"buy":265,"sell":292},"2028-08":{"buy":265,"sell":292},"2028-09":{"buy":265,"sell":292},"2028-10":{"buy":265,"sell":292},"2028-11":{"buy":265,"sell":292},"2028-12":{"buy":265,"sell":292},"2029":{"buy":245,"sell":265},"2030":{"buy":200,"sell":240},"2031":{"buy":173,"sell":215},"2032":{"buy":162,"sell":200},"2033":{"buy":157,"sell":195},"2034":{"buy":157,"sell":195},"2035":{"buy":153,"sell":195},"2036":{"buy":149,"sell":192},"2037":{"buy":148,"sell":188.41},"2038":{"buy":147,"sell":188.41},"2039":{"buy":147,"sell":188.41},"2040":{"buy":147,"sell":188.41},"2026-04":{"buy":278.03,"sell":284.03}},"I1":{"2026-05":{"buy":415,"sell":500},"2026-06":{"buy":400,"sell":460},"2026-07":{"buy":410,"sell":460},"2026-08":{"buy":430,"sell":495},"2026-09":{"buy":460,"sell":505},"2026-10":{"buy":480,"sell":535},"2026-11":{"buy":480,"sell":535},"2026-12":{"buy":480,"sell":535},"2027-01":{"buy":442,"sell":485},"2027-02":{"buy":442,"sell":485},"2027-03":{"buy":442,"sell":485},"2027-04":{"buy":442,"sell":485},"2027-05":{"buy":442,"sell":485},"2027-06":{"buy":442,"sell":485},"2027-07":{"buy":442,"sell":485},"2027-08":{"buy":442,"sell":485},"2027-09":{"buy":442,"sell":485},"2027-10":{"buy":442,"sell":485},"2027-11":{"buy":442,"sell":485},"2027-12":{"buy":442,"sell":485},"2028-01":{"buy":410,"sell":460},"2028-02":{"buy":410,"sell":460},"2028-03":{"buy":410,"sell":460},"2028-04":{"buy":410,"sell":460},"2028-05":{"buy":410,"sell":460},"2028-06":{"buy":410,"sell":460},"2028-07":{"buy":410,"sell":460},"2028-08":{"buy":410,"sell":460},"2028-09":{"buy":410,"sell":460},"2028-10":{"buy":410,"sell":460},"2028-11":{"buy":410,"sell":460},"2028-12":{"buy":410,"sell":460},"2029":{"buy":390,"sell":435},"2030":{"buy":345,"sell":410},"2031":{"buy":320,"sell":385},"2032":{"buy":310,"sell":370},"2033":{"buy":307,"sell":365},"2034":{"buy":307,"sell":365},"2035":{"buy":303,"sell":365},"2036":{"buy":299,"sell":362},"2037":{"buy":298,"sell":358.41},"2038":{"buy":297,"sell":358.41},"2039":{"buy":297,"sell":358.41},"2040":{"buy":297,"sell":358.41},"2026-04":{"buy":424.03,"sell":454.03}}},"NE":{"Conv":{"2026-05":{"buy":50,"sell":210},"2026-06":{"buy":85,"sell":200},"2026-07":{"buy":190,"sell":260},"2026-08":{"buy":210,"sell":295},"2026-09":{"buy":240,"sell":305},"2026-10":{"buy":270,"sell":335},"2026-11":{"buy":270,"sell":335},"2026-12":{"buy":270,"sell":335},"2027-01":{"buy":212,"sell":260},"2027-02":{"buy":212,"sell":260},"2027-03":{"buy":212,"sell":260},"2027-04":{"buy":212,"sell":260},"2027-05":{"buy":212,"sell":260},"2027-06":{"buy":212,"sell":260},"2027-07":{"buy":212,"sell":260},"2027-08":{"buy":212,"sell":260},"2027-09":{"buy":212,"sell":260},"2027-10":{"buy":212,"sell":260},"2027-11":{"buy":212,"sell":260},"2027-12":{"buy":212,"sell":260},"2028-01":{"buy":190,"sell":245},"2028-02":{"buy":190,"sell":245},"2028-03":{"buy":190,"sell":245},"2028-04":{"buy":190,"sell":245},"2028-05":{"buy":190,"sell":245},"2028-06":{"buy":190,"sell":245},"2028-07":{"buy":190,"sell":245},"2028-08":{"buy":190,"sell":245},"2028-09":{"buy":190,"sell":245},"2028-10":{"buy":190,"sell":245},"2028-11":{"buy":190,"sell":245},"2028-12":{"buy":190,"sell":245},"2029":{"buy":180,"sell":225},"2030":{"buy":145,"sell":205},"2031":{"buy":125,"sell":183},"2032":{"buy":115,"sell":168},"2033":{"buy":129,"sell":163},"2034":{"buy":129,"sell":163},"2035":{"buy":125,"sell":163},"2036":{"buy":121,"sell":160},"2037":{"buy":125,"sell":156.41},"2038":{"buy":124,"sell":156.41},"2039":{"buy":124,"sell":156.41},"2040":{"buy":124,"sell":156.41},"2026-04":{"buy":139.28,"sell":139.28}},"I0":{"2026-05":{"buy":51,"sell":213},"2026-06":{"buy":86,"sell":203},"2026-07":{"buy":191,"sell":263},"2026-08":{"buy":211,"sell":298},"2026-09":{"buy":241,"sell":308},"2026-10":{"buy":271,"sell":338},"2026-11":{"buy":271,"sell":338},"2026-12":{"buy":271,"sell":338},"2027-01":{"buy":213,"sell":262},"2027-02":{"buy":213,"sell":262},"2027-03":{"buy":213,"sell":262},"2027-04":{"buy":213,"sell":262},"2027-05":{"buy":213,"sell":262},"2027-06":{"buy":213,"sell":262},"2027-07":{"buy":213,"sell":262},"2027-08":{"buy":213,"sell":262},"2027-09":{"buy":213,"sell":262},"2027-10":{"buy":213,"sell":262},"2027-11":{"buy":213,"sell":262},"2027-12":{"buy":213,"sell":262},"2028-01":{"buy":191,"sell":247},"2028-02":{"buy":191,"sell":247},"2028-03":{"buy":191,"sell":247},"2028-04":{"buy":191,"sell":247},"2028-05":{"buy":191,"sell":247},"2028-06":{"buy":191,"sell":247},"2028-07":{"buy":191,"sell":247},"2028-08":{"buy":191,"sell":247},"2028-09":{"buy":191,"sell":247},"2028-10":{"buy":191,"sell":247},"2028-11":{"buy":191,"sell":247},"2028-12":{"buy":191,"sell":247},"2029":{"buy":181,"sell":227},"2030":{"buy":146,"sell":207},"2031":{"buy":126,"sell":185},"2032":{"buy":116,"sell":170},"2033":{"buy":130,"sell":165},"2034":{"buy":130,"sell":165},"2035":{"buy":126,"sell":165},"2036":{"buy":122,"sell":162},"2037":{"buy":126,"sell":158.41},"2038":{"buy":125,"sell":158.41},"2039":{"buy":125,"sell":158.41},"2040":{"buy":125,"sell":158.41},"2026-04":{"buy":140.28,"sell":141.28}},"I5":{"2026-05":{"buy":74,"sell":240},"2026-06":{"buy":109,"sell":230},"2026-07":{"buy":214,"sell":290},"2026-08":{"buy":234,"sell":325},"2026-09":{"buy":264,"sell":335},"2026-10":{"buy":294,"sell":365},"2026-11":{"buy":294,"sell":365},"2026-12":{"buy":294,"sell":365},"2027-01":{"buy":237,"sell":293},"2027-02":{"buy":237,"sell":293},"2027-03":{"buy":237,"sell":293},"2027-04":{"buy":237,"sell":293},"2027-05":{"buy":237,"sell":293},"2027-06":{"buy":237,"sell":293},"2027-07":{"buy":237,"sell":293},"2027-08":{"buy":237,"sell":293},"2027-09":{"buy":237,"sell":293},"2027-10":{"buy":237,"sell":293},"2027-11":{"buy":237,"sell":293},"2027-12":{"buy":237,"sell":293},"2028-01":{"buy":215,"sell":277},"2028-02":{"buy":215,"sell":277},"2028-03":{"buy":215,"sell":277},"2028-04":{"buy":215,"sell":277},"2028-05":{"buy":215,"sell":277},"2028-06":{"buy":215,"sell":277},"2028-07":{"buy":215,"sell":277},"2028-08":{"buy":215,"sell":277},"2028-09":{"buy":215,"sell":277},"2028-10":{"buy":215,"sell":277},"2028-11":{"buy":215,"sell":277},"2028-12":{"buy":215,"sell":277},"2029":{"buy":205,"sell":255},"2030":{"buy":170,"sell":235},"2031":{"buy":148,"sell":213},"2032":{"buy":137,"sell":198},"2033":{"buy":149,"sell":193},"2034":{"buy":149,"sell":193},"2035":{"buy":145,"sell":193},"2036":{"buy":141,"sell":190},"2037":{"buy":145,"sell":186.41},"2038":{"buy":144,"sell":186.41},"2039":{"buy":144,"sell":186.41},"2040":{"buy":144,"sell":186.41},"2026-04":{"buy":163.28,"sell":169.28}},"I1":{"2026-05":{"buy":220,"sell":410},"2026-06":{"buy":255,"sell":400},"2026-07":{"buy":360,"sell":460},"2026-08":{"buy":380,"sell":495},"2026-09":{"buy":410,"sell":505},"2026-10":{"buy":440,"sell":535},"2026-11":{"buy":440,"sell":535},"2026-12":{"buy":440,"sell":535},"2027-01":{"buy":382,"sell":460},"2027-02":{"buy":382,"sell":460},"2027-03":{"buy":382,"sell":460},"2027-04":{"buy":382,"sell":460},"2027-05":{"buy":382,"sell":460},"2027-06":{"buy":382,"sell":460},"2027-07":{"buy":382,"sell":460},"2027-08":{"buy":382,"sell":460},"2027-09":{"buy":382,"sell":460},"2027-10":{"buy":382,"sell":460},"2027-11":{"buy":382,"sell":460},"2027-12":{"buy":382,"sell":460},"2028-01":{"buy":360,"sell":445},"2028-02":{"buy":360,"sell":445},"2028-03":{"buy":360,"sell":445},"2028-04":{"buy":360,"sell":445},"2028-05":{"buy":360,"sell":445},"2028-06":{"buy":360,"sell":445},"2028-07":{"buy":360,"sell":445},"2028-08":{"buy":360,"sell":445},"2028-09":{"buy":360,"sell":445},"2028-10":{"buy":360,"sell":445},"2028-11":{"buy":360,"sell":445},"2028-12":{"buy":360,"sell":445},"2029":{"buy":350,"sell":425},"2030":{"buy":315,"sell":405},"2031":{"buy":295,"sell":383},"2032":{"buy":285,"sell":368},"2033":{"buy":299,"sell":363},"2034":{"buy":299,"sell":363},"2035":{"buy":295,"sell":363},"2036":{"buy":291,"sell":360},"2037":{"buy":295,"sell":356.41},"2038":{"buy":294,"sell":356.41},"2039":{"buy":294,"sell":356.41},"2040":{"buy":294,"sell":356.41},"2026-04":{"buy":309.28,"sell":339.28}}},"N":{"Conv":{"2026-05":{"buy":50,"sell":210},"2026-06":{"buy":85,"sell":200},"2026-07":{"buy":190,"sell":210},"2026-08":{"buy":210,"sell":245},"2026-09":{"buy":240,"sell":255},"2026-10":{"buy":270,"sell":285},"2026-11":{"buy":270,"sell":285},"2026-12":{"buy":270,"sell":285},"2027-01":{"buy":212,"sell":275},"2027-02":{"buy":212,"sell":275},"2027-03":{"buy":212,"sell":275},"2027-04":{"buy":212,"sell":275},"2027-05":{"buy":212,"sell":275},"2027-06":{"buy":212,"sell":275},"2027-07":{"buy":212,"sell":275},"2027-08":{"buy":212,"sell":275},"2027-09":{"buy":212,"sell":275},"2027-10":{"buy":212,"sell":275},"2027-11":{"buy":212,"sell":275},"2027-12":{"buy":212,"sell":275},"2028-01":{"buy":190,"sell":255},"2028-02":{"buy":190,"sell":255},"2028-03":{"buy":190,"sell":255},"2028-04":{"buy":190,"sell":255},"2028-05":{"buy":190,"sell":255},"2028-06":{"buy":190,"sell":255},"2028-07":{"buy":190,"sell":255},"2028-08":{"buy":190,"sell":255},"2028-09":{"buy":190,"sell":255},"2028-10":{"buy":190,"sell":255},"2028-11":{"buy":190,"sell":255},"2028-12":{"buy":190,"sell":255},"2029":{"buy":180,"sell":230},"2030":{"buy":145,"sell":205},"2031":{"buy":125,"sell":183},"2032":{"buy":115,"sell":168},"2033":{"buy":129,"sell":163},"2034":{"buy":129,"sell":163},"2035":{"buy":125,"sell":163},"2036":{"buy":121,"sell":160},"2037":{"buy":125,"sell":156.41},"2038":{"buy":124,"sell":156.41},"2039":{"buy":124,"sell":156.41},"2040":{"buy":124,"sell":156.41},"2026-04":{"buy":138.58,"sell":138.58}},"I0":{"2026-05":{"buy":51,"sell":213},"2026-06":{"buy":86,"sell":203},"2026-07":{"buy":191,"sell":213},"2026-08":{"buy":211,"sell":248},"2026-09":{"buy":241,"sell":258},"2026-10":{"buy":271,"sell":288},"2026-11":{"buy":271,"sell":288},"2026-12":{"buy":271,"sell":288},"2027-01":{"buy":213,"sell":277},"2027-02":{"buy":213,"sell":277},"2027-03":{"buy":213,"sell":277},"2027-04":{"buy":213,"sell":277},"2027-05":{"buy":213,"sell":277},"2027-06":{"buy":213,"sell":277},"2027-07":{"buy":213,"sell":277},"2027-08":{"buy":213,"sell":277},"2027-09":{"buy":213,"sell":277},"2027-10":{"buy":213,"sell":277},"2027-11":{"buy":213,"sell":277},"2027-12":{"buy":213,"sell":277},"2028-01":{"buy":191,"sell":257},"2028-02":{"buy":191,"sell":257},"2028-03":{"buy":191,"sell":257},"2028-04":{"buy":191,"sell":257},"2028-05":{"buy":191,"sell":257},"2028-06":{"buy":191,"sell":257},"2028-07":{"buy":191,"sell":257},"2028-08":{"buy":191,"sell":257},"2028-09":{"buy":191,"sell":257},"2028-10":{"buy":191,"sell":257},"2028-11":{"buy":191,"sell":257},"2028-12":{"buy":191,"sell":257},"2029":{"buy":181,"sell":232},"2030":{"buy":146,"sell":207},"2031":{"buy":126,"sell":185},"2032":{"buy":116,"sell":170},"2033":{"buy":130,"sell":165},"2034":{"buy":130,"sell":165},"2035":{"buy":126,"sell":165},"2036":{"buy":122,"sell":162},"2037":{"buy":126,"sell":158.41},"2038":{"buy":125,"sell":158.41},"2039":{"buy":125,"sell":158.41},"2040":{"buy":125,"sell":158.41},"2026-04":{"buy":139.58,"sell":140.58}},"I5":{"2026-05":{"buy":74,"sell":240},"2026-06":{"buy":109,"sell":230},"2026-07":{"buy":214,"sell":240},"2026-08":{"buy":234,"sell":275},"2026-09":{"buy":264,"sell":285},"2026-10":{"buy":294,"sell":315},"2026-11":{"buy":294,"sell":315},"2026-12":{"buy":294,"sell":315},"2027-01":{"buy":237,"sell":308},"2027-02":{"buy":237,"sell":308},"2027-03":{"buy":237,"sell":308},"2027-04":{"buy":237,"sell":308},"2027-05":{"buy":237,"sell":308},"2027-06":{"buy":237,"sell":308},"2027-07":{"buy":237,"sell":308},"2027-08":{"buy":237,"sell":308},"2027-09":{"buy":237,"sell":308},"2027-10":{"buy":237,"sell":308},"2027-11":{"buy":237,"sell":308},"2027-12":{"buy":237,"sell":308},"2028-01":{"buy":215,"sell":287},"2028-02":{"buy":215,"sell":287},"2028-03":{"buy":215,"sell":287},"2028-04":{"buy":215,"sell":287},"2028-05":{"buy":215,"sell":287},"2028-06":{"buy":215,"sell":287},"2028-07":{"buy":215,"sell":287},"2028-08":{"buy":215,"sell":287},"2028-09":{"buy":215,"sell":287},"2028-10":{"buy":215,"sell":287},"2028-11":{"buy":215,"sell":287},"2028-12":{"buy":215,"sell":287},"2029":{"buy":205,"sell":260},"2030":{"buy":170,"sell":235},"2031":{"buy":148,"sell":213},"2032":{"buy":137,"sell":198},"2033":{"buy":149,"sell":193},"2034":{"buy":149,"sell":193},"2035":{"buy":145,"sell":193},"2036":{"buy":141,"sell":190},"2037":{"buy":145,"sell":186.41},"2038":{"buy":144,"sell":186.41},"2039":{"buy":144,"sell":186.41},"2040":{"buy":144,"sell":186.41},"2026-04":{"buy":162.58,"sell":168.58}},"I1":{"2026-05":{"buy":220,"sell":410},"2026-06":{"buy":255,"sell":400},"2026-07":{"buy":360,"sell":410},"2026-08":{"buy":380,"sell":445},"2026-09":{"buy":410,"sell":455},"2026-10":{"buy":440,"sell":485},"2026-11":{"buy":440,"sell":485},"2026-12":{"buy":440,"sell":485},"2027-01":{"buy":382,"sell":475},"2027-02":{"buy":382,"sell":475},"2027-03":{"buy":382,"sell":475},"2027-04":{"buy":382,"sell":475},"2027-05":{"buy":382,"sell":475},"2027-06":{"buy":382,"sell":475},"2027-07":{"buy":382,"sell":475},"2027-08":{"buy":382,"sell":475},"2027-09":{"buy":382,"sell":475},"2027-10":{"buy":382,"sell":475},"2027-11":{"buy":382,"sell":475},"2027-12":{"buy":382,"sell":475},"2028-01":{"buy":360,"sell":455},"2028-02":{"buy":360,"sell":455},"2028-03":{"buy":360,"sell":455},"2028-04":{"buy":360,"sell":455},"2028-05":{"buy":360,"sell":455},"2028-06":{"buy":360,"sell":455},"2028-07":{"buy":360,"sell":455},"2028-08":{"buy":360,"sell":455},"2028-09":{"buy":360,"sell":455},"2028-10":{"buy":360,"sell":455},"2028-11":{"buy":360,"sell":455},"2028-12":{"buy":360,"sell":455},"2029":{"buy":350,"sell":430},"2030":{"buy":315,"sell":405},"2031":{"buy":295,"sell":383},"2032":{"buy":285,"sell":368},"2033":{"buy":299,"sell":363},"2034":{"buy":299,"sell":363},"2035":{"buy":295,"sell":363},"2036":{"buy":291,"sell":360},"2037":{"buy":295,"sell":356.41},"2038":{"buy":294,"sell":356.41},"2039":{"buy":294,"sell":356.41},"2040":{"buy":294,"sell":356.41},"2026-04":{"buy":308.58,"sell":338.58}}}};
+const PRELOADED_DATE = "2026-05-05T10:07:00.000Z";
+
+async function load() {
+  try {
+    const r = await window.storage.get('tria-prices');
+    if (r) {
+      prices = JSON.parse(r.value);
+    } else {
+      // First load: use preloaded prices from LP 24/04/2026
+      prices = JSON.parse(JSON.stringify(PRELOADED_PRICES));
+      await window.storage.set('tria-prices', JSON.stringify(prices));
+    }
+  } catch(_) {
+    prices = JSON.parse(JSON.stringify(PRELOADED_PRICES));
+  }
+  try {
+    const r = await window.storage.get('tria-meta');
+    if (r) {
+      const m = JSON.parse(r.value);
+      lastUpdate = m.lastUpdate || PRELOADED_DATE;
+      panicOn    = m.panicOn   || false;
+    } else {
+      lastUpdate = PRELOADED_DATE;
+    }
+    refreshUpdateBadge();
+    if (panicOn) showPanic();
+  } catch(_) {
+    lastUpdate = PRELOADED_DATE;
+    refreshUpdateBadge();
+  }
+}
+
+async function persist() {
+  await window.storage.set('tria-prices', JSON.stringify(prices));
+  lastUpdate = new Date().toISOString();
+  await window.storage.set('tria-meta', JSON.stringify({ lastUpdate, panicOn }));
+  refreshUpdateBadge();
+}
+
+function refreshUpdateBadge() {
+  const el = document.getElementById('update-time');
+  const dot = document.getElementById('update-dot');
+  if (!lastUpdate) { el.textContent = 'sem atualização'; return; }
+  const d = new Date(lastUpdate);
+  const diffH = (Date.now() - d) / 3600000;
+  el.textContent = d.toLocaleString('pt-BR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});
+  dot.className = 'update-dot' + (diffH > 6 ? ' stale' : '');
+}
+
+function getP(sub,src,key) {
+  return prices?.[sub]?.[src]?.[key] || { buy:null, sell:null };
+}
+function setP(sub,src,key,side,val) {
+  if (!prices[sub]) prices[sub]={};
+  if (!prices[sub][src]) prices[sub][src]={};
+  if (!prices[sub][src][key]) prices[sub][src][key]={buy:null,sell:null};
+  prices[sub][src][key][side] = val===''?null:parseFloat(val);
+}
+
+// ════════════════════════════════════
+// PERIOD SELECT OPTIONS — always monthly Jan/2026 to Dez/2040
+// ════════════════════════════════════
+function buildOpts(selected, otherKey, isEnd) {
+  const otherIdx = otherKey ? MONTH_KEYS.findIndex(p=>p.key===otherKey) : -1;
+  let h = `<option value="">— selecionar —</option>`;
+  let curYear = null;
+  for (let i=0; i<MONTH_KEYS.length; i++) {
+    const p = MONTH_KEYS[i];
+    if (p.y !== curYear) {
+      if (curYear !== null) h += `</optgroup>`;
+      h += `<optgroup label="${p.y}">`;
+      curYear = p.y;
+    }
+    const disabled = otherIdx>=0 && (isEnd ? i<otherIdx : i>otherIdx);
+    h += `<option value="${p.key}"${p.key===selected?' selected':''}${disabled?' disabled':''}>`;
+    h += `${p.label}</option>`;
+  }
+  h += `</optgroup>`;
+  return h;
+}
+
+// ════════════════════════════════════
+// PERIOD ROWS RENDER
+// ════════════════════════════════════
+function renderPeriodRows() {
+  const wrap = document.getElementById('periods-wrap');
+  wrap.innerHTML = periodRows.map((row, i) => {
+    const nonStd = isNonStandard(row.start, row.end);
+    const monthList = expandRange(row.start, row.end);
+    // Volume inputs per month
+    const volInputs = monthList.length > 0 ? `
+      <div class="vol-wrap">
+        <div class="vol-header">
+          <span class="vol-title">Volume (MW médios por mês)</span>
+        </div>
+        <div class="vol-grid">
+          ${monthList.map((p,mi) => `
+            <div class="vol-col">
+              <div class="vol-month">${p.label}</div>
+              <div class="vol-hours">${p.hours}h</div>
+              <input class="vol-input" type="number" step="0.001" min="0"
+                placeholder="MWm"
+                value="${row.volumes?.[p.key] ?? ''}"
+                onchange="setVolume(${i},'${p.key}',this.value)">
+            </div>`).join('')}
+        </div>
+      </div>` : '';
+
+    return `
+    <div class="period-card${nonStd?' nonstandard':''}" id="prow-${i}">
+      <div class="period-num">${i+1}</div>
+      <div class="period-field">
+        <label>Início do Fornecimento</label>
+        <select class="period-select" onchange="onPeriodChange(${i},'start',this.value)">
+          ${buildOpts(row.start, row.end, false)}
+        </select>
+      </div>
+      <div class="period-field">
+        <label>Fim do Fornecimento</label>
+        <select class="period-select" onchange="onPeriodChange(${i},'end',this.value)">
+          ${buildOpts(row.end, row.start, true)}
+        </select>
+      </div>
+      ${periodRows.length > 1
+        ? `<button class="period-remove" onclick="removePeriod(${i})" title="Remover">×</button>`
+        : `<div></div>`}
+      ${nonStd ? `<div class="period-alert on">
+        ⚠️ Produto não padrão — falar com a Mesa de Operações antes de prosseguir.
+      </div>` : ''}
+      ${volInputs}
+    </div>`;
+  }).join('');
+
+  const btn = document.getElementById('add-period-btn');
+  btn.classList.toggle('hidden', periodRows.length >= MAX_PERIODS);
+}
+
+function setVolume(rowIdx, key, val) {
+  if (!periodRows[rowIdx].volumes) periodRows[rowIdx].volumes = {};
+  periodRows[rowIdx].volumes[key] = val === '' ? '' : parseFloat(val);
+  renderResults();
+}
+
+function addPeriod() {
+  if (periodRows.length >= MAX_PERIODS) return;
+  periodRows.push({ start: null, end: null, volumes: {} });
+  renderPeriodRows();
+  renderResults();
+}
+
+function removePeriod(i) {
+  if (periodRows.length <= 1) return;
+  periodRows.splice(i, 1);
+  renderPeriodRows();
+  renderResults();
+}
+
+function onPeriodChange(i, field, val) {
+  periodRows[i][field] = val || null;
+  // If end < start, clear end
+  if (periodRows[i].start && periodRows[i].end) {
+    const si = MONTH_KEYS.findIndex(p=>p.key===periodRows[i].start);
+    const ei = MONTH_KEYS.findIndex(p=>p.key===periodRows[i].end);
+    if (ei < si) periodRows[i].end = null;
+  }
+  renderPeriodRows();
+  renderResults();
+}
+
+// ════════════════════════════════════
+// RESULTS
+// ════════════════════════════════════
+function renderResults() {
+  const wrap = document.getElementById('results-grid');
+  if (!sel.posicao || !sel.sub || !sel.src) {
+    wrap.innerHTML = `<div class="res-card"><div class="res-empty">Selecione posição, submercado e fonte para calcular.</div></div>`;
+    return;
+  }
+  const side = sel.posicao === 'compra' ? 'buy' : 'sell';
+  const isBuy = sel.posicao === 'compra';
+
+  const rows = periodRows.map((row, i) => {
+    const list = expandRange(row.start, row.end);
+    if (!row.start || !row.end || list.length === 0) {
+      return `<div class="res-card">
+        <div class="res-idx">${i+1}</div>
+        <div class="res-range" style="color:var(--muted)">—</div>
+        <div class="res-months"></div>
+        <div class="res-price-wrap"><div class="res-price" style="color:var(--muted);font-size:16px">sem período</div></div>
+      </div>`;
+    }
+    const vols = getVolumes(i, list);
+    const hasVols = vols.every(v => v !== null && !isNaN(v));
+    const avg = calcWAvg(list, sel.sub, sel.src, side, hasVols ? vols : null);
+    const mwhTotal = hasVols ? list.reduce((s,p,j) => s + p.hours * vols[j], 0) : null;
+    const mwmAvg = hasVols && mwhTotal ? (mwhTotal / list.reduce((s,p)=>s+p.hours,0)) : null;
+
+    const startLbl = MONTH_KEYS.find(p=>p.key===row.start)?.label || row.start;
+    const endLbl   = MONTH_KEYS.find(p=>p.key===row.end)?.label   || row.end;
+    const nMonths  = list.length;
+    const cls = avg !== null ? (isBuy ? 'lit-buy' : 'lit-sell') : '';
+    const weightLabel = hasVols
+      ? `<span style="color:var(--green);font-size:9px">▲ ponderado por volume</span>`
+      : `<span style="color:var(--muted);font-size:9px">ponderado por horas</span>`;
+
+    return `<div class="res-card ${cls}">
+      <div class="res-idx">${i+1}</div>
+      <div class="res-range">
+        <div class="r-from">de</div><div>${startLbl}</div>
+        <div class="r-from">até</div><div>${endLbl}</div>
+      </div>
+      <div class="res-months">
+        ${nMonths} ${nMonths===1?'mês':'meses'}
+        ${mwhTotal ? `· ${mwhTotal.toLocaleString('pt-BR',{maximumFractionDigits:0})} MWh` : ''}
+        ${mwmAvg ? `· ${mwmAvg.toFixed(3)} MWmédios` : ''}
+        <br>${weightLabel}
+      </div>
+      <div class="res-price-wrap">
+        ${avg !== null ? (() => {
+          const pf = params._premFlex || 0;
+          const ps = params._premSazo || 0;
+          const hasPrem = (pf + ps) > 0;
+          const final = avg + pf + ps;
+          return hasPrem
+            ? `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:2px">
+                 flat: R$ ${avg.toFixed(2)}
+               </div>
+               <div class="res-price">${final.toFixed(2)}</div>
+               <div class="res-unit">R$/MWh (c/ prêmio)</div>`
+            : `<div class="res-price">${avg.toFixed(2)}</div>
+               <div class="res-unit">R$/MWh</div>`;
+        })() : `<div class="res-price" style="color:var(--muted);font-size:15px">sem preço</div>`}
+      </div>
+    </div>`;
+  });
+
+  wrap.innerHTML = rows.join('');
+  setTimeout(calcPremium, 0);
+}
+
+// ════════════════════════════════════
+// PICKS
+// ════════════════════════════════════
+function pick(field, val, el, cls) {
+  const groupId = field==='posicao'?'g-posicao':field==='sub'?'g-sub':field==='src'?'g-src':'g-tipo';
+  document.querySelectorAll(`#${groupId} .pill`).forEach(p=>p.className='pill');
+  el.className=`pill ${cls}`;
+  sel[field]=val;
+  renderResults();
+}
+
+// ════════════════════════════════════
+// EXPORT XLS
+// ════════════════════════════════════
+function exportXLS() {
+  const contraparte = document.getElementById('contraparte').value || '—';
+  const comentarios = document.getElementById('comentarios').value || '';
+  const posicao  = sel.posicao  ? sel.posicao.charAt(0).toUpperCase()+sel.posicao.slice(1) : '—';
+  const sub      = sel.sub  || '—';
+  const src      = sel.src  || '—';
+  const tipo     = sel.tipo ? sel.tipo.charAt(0).toUpperCase()+sel.tipo.slice(1) : '—';
+  const side     = sel.posicao === 'compra' ? 'buy' : 'sell';
+  const gerado   = new Date().toLocaleString('pt-BR');
+
+  // Build rows
+  const dataRows = periodRows.map((row, i) => {
+    const list = expandRange(row.start, row.end);
+    const nonStd = isNonStandard(row.start, row.end);
+    if (!row.start || !row.end || list.length===0) return null;
+    const avg = (sel.sub && sel.src && sel.posicao) ? calcWAvg(list, sel.sub, sel.src, side) : null;
+    const startLbl = MONTH_KEYS.find(p=>p.key===row.start)?.label || row.start;
+    const endLbl   = MONTH_KEYS.find(p=>p.key===row.end)?.label   || row.end;
+    const totalH   = list.reduce((s,p)=>s+p.hours,0);
+    return {
+      num: i+1,
+      inicio: startLbl,
+      fim: endLbl,
+      periodos: list.length,
+      horas: totalH,
+      preco: avg !== null ? avg.toFixed(2) : 'sem preço',
+      alerta: nonStd ? 'Produto não padrão — Mesa de Operações' : ''
+    };
+  }).filter(Boolean);
+
+  // Build HTML table for XLS
+  const rows = dataRows.map(r => `
+    <tr>
+      <td>${r.num}</td>
+      <td>${r.inicio}</td>
+      <td>${r.fim}</td>
+      <td>${r.periodos}</td>
+      <td>${r.horas}</td>
+      <td><b>${r.preco}</b></td>
+      <td style="color:${r.alerta?'#b45309':''}">${r.alerta}</td>
+    </tr>`).join('');
+
+  const html = `
+    <html><head><meta charset="UTF-8">
+    <style>
+      body{font-family:Arial,sans-serif;font-size:11pt}
+      h2{color:#0f2a1e;font-size:14pt;margin-bottom:4px}
+      .meta{font-size:10pt;color:#555;margin-bottom:16px;line-height:1.7}
+      table{border-collapse:collapse;width:100%}
+      th{background:#0f2a1e;color:#fff;padding:8px 12px;text-align:left;font-size:10pt}
+      td{border:1px solid #ddd;padding:7px 12px;font-size:10pt}
+      tr:nth-child(even) td{background:#f7f9f7}
+      .footer{margin-top:20px;font-size:9pt;color:#999}
+    </style>
+    </head><body>
+    <h2>Tria Energia — Simulação de Preço</h2>
+    <div class="meta">
+      <b>Contraparte:</b> ${contraparte} &nbsp;|&nbsp;
+      <b>Posição:</b> ${posicao} &nbsp;|&nbsp;
+      <b>Submercado:</b> ${sub} &nbsp;|&nbsp;
+      <b>Fonte:</b> ${src} &nbsp;|&nbsp;
+      <b>Tipo de Proposta:</b> ${tipo}<br>
+      <b>Comentários:</b> ${comentarios || '—'}<br>
+      <b>Gerado em:</b> ${gerado}
+    </div>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Início</th><th>Fim</th>
+        <th>Períodos</th><th>Horas Totais</th>
+        <th>Preço R$/MWh</th><th>Observação</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="footer">Tria Energia · contato@triaenergia.com.br · Simulação gerada automaticamente — sujeita a confirmação da Mesa de Operações.</div>
+    </body></html>`;
+
+  const blob = new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `tria_simulacao_${contraparte.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xls`;
+  a.click();
+  toast('↗ Excel exportado');
+}
+
+// ════════════════════════════════════
+// ADMIN — TABLE
+// ════════════════════════════════════
+function renderTable() {
+  const sub=adminSub, src=adminSrc;
+  let h=`<thead><tr>
+    <th>Período</th>
+    <th class="r" style="color:var(--muted)">horas</th>
+    <th class="r" style="color:var(--buy)">Compra R$/MWh</th>
+    <th class="r" style="color:var(--sell)">Venda R$/MWh</th>
+  </tr></thead><tbody>`;
+
+  let curYear=null;
+  ADMIN_PERIODS.forEach(p=>{
+    if (p.y!==curYear) {
+      curYear=p.y;
+      if (p.type==='y'&&p.y===2029)
+        h+=`<tr class="grp-head"><td colspan="4">2029 – 2040 — anual</td></tr>`;
+      else if(p.type==='m')
+        h+=`<tr class="grp-head"><td colspan="4">${p.y} — mensal</td></tr>`;
+    }
+    const pv = getP(sub,src,p.key);
+    h+=`<tr>
+      <td class="period-td">${p.label}</td>
+      <td class="hours-td">${p.hours}h</td>
+      <td class="input-td">
+        <input class="p-input buy" type="number" step="0.01" min="0"
+          value="${pv.buy??''}" placeholder="—"
+          onchange="setP('${sub}','${src}','${p.key}','buy',this.value)">
+      </td>
+      <td class="input-td">
+        <input class="p-input sell" type="number" step="0.01" min="0"
+          value="${pv.sell??''}" placeholder="—"
+          onchange="setP('${sub}','${src}','${p.key}','sell',this.value)">
+      </td>
+    </tr>`;
+  });
+  h+=`</tbody>`;
+  document.getElementById('ptable').innerHTML=h;
+}
+
+function setAdminSub(v,el) {
+  document.querySelectorAll('.filter-strip:first-of-type .ftag').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on'); adminSub=v; renderTable();
+}
+function setAdminSrc(v,el) {
+  document.querySelectorAll('.filter-strip:last-of-type .ftag').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on'); adminSrc=v; renderTable();
+}
+
+async function savePrices() {
+  await persist();
+  const ok = document.getElementById('save-ok');
+  ok.classList.add('on');
+  setTimeout(()=>ok.classList.remove('on'),2000);
+  toast('✓ Preços salvos');
+}
+
+function alertTeam() {
+  const t = new Date().toLocaleString('pt-BR');
+  const subj = encodeURIComponent(`[Tria] Preços atualizados — ${adminSub}/${adminSrc} — ${t}`);
+  const body = encodeURIComponent(
+    `Time,\n\nOs preços de referência foram atualizados.\n\n`+
+    `Submercado: ${adminSub}\nFonte: ${adminSrc}\nHorário: ${t}\n\n`+
+    `Acesse a plataforma para consultar os novos valores.\n\nTria Energia`
+  );
+  window.open(`mailto:?subject=${subj}&body=${body}`);
+  toast('📧 E-mail de alerta preparado');
+}
+
+function exportCSV() {
+  let csv='Período,Horas,Compra (R$/MWh),Venda (R$/MWh)\n';
+  ADMIN_PERIODS.forEach(p=>{
+    const pv=getP(adminSub,adminSrc,p.key);
+    csv+=`${p.label},${p.hours},${pv.buy??''},${pv.sell??''}\n`;
+  });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`tria_precos_${adminSub}_${adminSrc}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('↗ CSV exportado');
+}
+
+// ════════════════════════════════════
+// PANIC
+// ════════════════════════════════════
+async function triggerPanic() {
+  panicOn=true;
+  showPanic();
+  await window.storage.set('tria-meta', JSON.stringify({lastUpdate, panicOn:true}));
+}
+function showPanic() {
+  document.getElementById('panic-overlay').classList.add('on');
+  document.getElementById('panic-time').textContent =
+    'Ativado: '+new Date().toLocaleString('pt-BR');
+}
+async function dismissPanic() {
+  panicOn=false;
+  document.getElementById('panic-overlay').classList.remove('on');
+  await window.storage.set('tria-meta', JSON.stringify({lastUpdate, panicOn:false}));
+  toast('✓ Mercado liberado');
+}
+
+// ════════════════════════════════════
+// UTILS
+// ════════════════════════════════════
+function goView(v, btn) {
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.nav-tab').forEach(el=>el.classList.remove('active'));
+  document.getElementById(`view-${v}`).classList.add('on');
+  btn.classList.add('active');
+  if (v==='admin') { renderTable(); showAdminTab('prices', document.getElementById('atab-prices')); }
+}
+function toast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('on');
+  setTimeout(()=>t.classList.remove('on'),2800);
+}
+
+
+// ════════════════════════════════════
+// SUMMARY TABLE — Conv + I5 / SE/CO
+// ════════════════════════════════════
+function renderSummary() {
+  const sub = 'SE/CO';
+  // Periods to show: abr-dez/2026 (grouped), 2027, 2028, 2029, 2030
+  // We'll show period label + buy/sell for Conv and I5
+  const summaryPeriods = [
+    { label: 'abr–dez/26', keys: [] },
+    { label: '2027',       keys: [] },
+    { label: '2028',       keys: [] },
+    { label: '2029',       keys: ['2029'] },
+    { label: '2030',       keys: ['2030'] },
+  ];
+
+  // Fill monthly keys
+  for (let m=4; m<=12; m++)
+    summaryPeriods[0].keys.push(`2026-${String(m).padStart(2,'0')}`);
+  for (let m=1; m<=12; m++)
+    summaryPeriods[1].keys.push(`2027-${String(m).padStart(2,'0')}`);
+  for (let m=1; m<=12; m++)
+    summaryPeriods[2].keys.push(`2028-${String(m).padStart(2,'0')}`);
+
+  function wavg(keys, src, side) {
+    const months = keys.map(k => MONTH_KEYS.find(p=>p.key===k)).filter(Boolean);
+    if (!months.length) {
+      // Annual key
+      const p = getP(sub, src, keys[0]);
+      return p[side];
+    }
+    let tv=0, th=0;
+    for (const mo of months) {
+      const pk = priceKey(mo.key);
+      const pv = getP(sub, src, pk);
+      const v = pv[side];
+      if (v===null||v===undefined) return null;
+      tv += v * mo.hours; th += mo.hours;
+    }
+    return th>0 ? tv/th : null;
+  }
+
+  function fmt(v) {
+    return v !== null && v !== undefined ? v.toFixed(2) : '—';
+  }
+
+  const grid = document.getElementById('summary-grid');
+  let h = '';
+
+  // Header row
+  h += `<div class="sg-cell header">Período</div>`;
+  h += `<div class="sg-cell src-header conv" style="grid-column:span 2">Conv</div>`;
+  h += `<div class="sg-cell src-header i5"   style="grid-column:span 2">I5</div>`;
+  h += `<div class="sg-cell src-header conv" style="grid-column:span 2">I1</div>`;
+
+  // Sub-header
+  h += `<div class="sg-cell header"></div>`;
+  for (let i=0; i<3; i++) {
+    h += `<div class="sg-cell header"><span class="sg-buy">Compra</span></div>`;
+    h += `<div class="sg-cell header"><span class="sg-sell">Venda</span></div>`;
+  }
+
+  // Data rows
+  for (const sp of summaryPeriods) {
+    const cB = wavg(sp.keys, 'Conv', 'buy');
+    const cS = wavg(sp.keys, 'Conv', 'sell');
+    const iB = wavg(sp.keys, 'I5',   'buy');
+    const iS = wavg(sp.keys, 'I5',   'sell');
+    const i1B = wavg(sp.keys, 'I1',  'buy');
+    const i1S = wavg(sp.keys, 'I1',  'sell');
+
+    h += `<div class="sg-cell row-label">${sp.label}</div>`;
+    h += `<div class="sg-cell"><span class="sg-buy">${fmt(cB)}</span></div>`;
+    h += `<div class="sg-cell"><span class="sg-sell">${fmt(cS)}</span></div>`;
+    h += `<div class="sg-cell"><span class="sg-buy">${fmt(iB)}</span></div>`;
+    h += `<div class="sg-cell"><span class="sg-sell">${fmt(iS)}</span></div>`;
+    h += `<div class="sg-cell"><span class="sg-buy">${fmt(i1B)}</span></div>`;
+    h += `<div class="sg-cell"><span class="sg-sell">${fmt(i1S)}</span></div>`;
+  }
+
+  grid.innerHTML = h;
+}
+
+
+
+// ════════════════════════════════════
+// CNPJ FORMAT
+// ════════════════════════════════════
+function formatCNPJ(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,14);
+  if (v.length > 12) v = v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+  else if (v.length > 8) v = v.replace(/(\d{2})(\d{3})(\d{3})(\d+)/,'$1.$2.$3/$4');
+  else if (v.length > 5) v = v.replace(/(\d{2})(\d{3})(\d+)/,'$1.$2.$3');
+  else if (v.length > 2) v = v.replace(/(\d{2})(\d+)/,'$1.$2');
+  el.value = v;
+}
+
+// ════════════════════════════════════
+// FLEX / SAZO PREMIUM CALCULATOR
+// ════════════════════════════════════
+function pickVol(vol, el) {
+  document.querySelectorAll('#g-vol .pill').forEach(p => {
+    p.classList.remove('active-vol');
+  });
+  el.classList.add('active-vol');
+  params.vol = vol;
+  calcPremium();
+}
+
+function calcPremium() {
+  const flexPct  = parseFloat(params.flexPct) / 100 || 0;
+  const sazoPct  = parseFloat(params.sazoPct) / 100 || 0;
+  const vol      = params.vol || 1.06;
+
+  // Get base flat price from first period result (average of all period prices)
+  // Use SE/CO Conv as reference price for premium calc, or use current selection
+  const side = sel.posicao === 'compra' ? 'buy' : 'sell';
+  let basePrice = null;
+  for (const row of periodRows) {
+    const list = expandRange(row.start, row.end);
+    if (list.length === 0) continue;
+    const vols = getVolumes(periodRows.indexOf(row), list);
+    const hasV = vols.every(v => v !== null && !isNaN(v));
+    const avg = sel.sub && sel.src && sel.posicao
+      ? calcWAvg(list, sel.sub, sel.src, side, hasV ? vols : null)
+      : null;
+    if (avg !== null) { basePrice = avg; break; }
+  }
+
+  const resEl = document.getElementById('premium-result');
+  if (basePrice === null || (flexPct === 0 && sazoPct === 0)) {
+    resEl.style.display = 'none';
+    return;
+  }
+
+  // Fórmula da política:
+  // Prêmio Flex = Preço × Flex% × Vol × 0.40
+  // Prêmio Sazo = Preço × Sazo% × Vol × 0.25
+  const premFlex = basePrice * flexPct * vol * 0.40;
+  const premSazo = basePrice * sazoPct * vol * 0.25;
+  const premTotal = premFlex + premSazo;
+  const pctTotal  = (premTotal / basePrice * 100).toFixed(1);
+
+  const volLabels = {0.30:'C1 — 30% vol (muito otimista)', 0.50:'C2 — 50% vol (otimista)',
+                    1.06:'C3 — 106% vol (base recomendado)', 1.52:'C4 — 152% vol (conservador)'};
+
+  document.getElementById('prem-flex').textContent  = `R$ ${premFlex.toFixed(2)}/MWh`;
+  document.getElementById('prem-sazo').textContent  = `R$ ${premSazo.toFixed(2)}/MWh`;
+  document.getElementById('prem-total').textContent = `R$ ${premTotal.toFixed(2)}/MWh (+${pctTotal}%)`;
+  document.getElementById('prem-note').textContent  =
+    `Base: R$ ${basePrice.toFixed(2)} · ${volLabels[vol] || vol*100+'% vol'}`;
+  resEl.style.display = 'block';
+
+  // Store for export
+  params._premFlex  = premFlex;
+  params._premSazo  = premSazo;
+  params._premTotal = premTotal;
+  params._basePrice = basePrice;
+  // Refresh result cards to show updated final price (without re-triggering calcPremium)
+  _refreshPriceDisplay();
+}
+
+function _refreshPriceDisplay() {
+  // Re-render just the price wrap in each result card without full re-render
+  const side = sel.posicao === 'compra' ? 'buy' : 'sell';
+  const isBuy = sel.posicao === 'compra';
+  document.querySelectorAll('.res-card').forEach((card, i) => {
+    const row = periodRows[i];
+    if (!row || !row.start || !row.end) return;
+    const list = expandRange(row.start, row.end);
+    if (!list.length) return;
+    const vols = getVolumes(i, list);
+    const hasV = vols.every(v => v !== null && !isNaN(v));
+    const avg = calcWAvg(list, sel.sub, sel.src, side, hasV ? vols : null);
+    if (avg === null) return;
+    const pf = params._premFlex || 0;
+    const ps = params._premSazo || 0;
+    const hasPrem = (pf + ps) > 0;
+    const final = avg + pf + ps;
+    const wrap = card.querySelector('.res-price-wrap');
+    if (!wrap) return;
+    // Update color classes
+    card.classList.remove('lit-buy','lit-sell');
+    card.classList.add(isBuy ? 'lit-buy' : 'lit-sell');
+    wrap.innerHTML = hasPrem
+      ? `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:2px">flat: R$ ${avg.toFixed(2)}</div>
+         <div class="res-price">${final.toFixed(2)}</div>
+         <div class="res-unit">R$/MWh (c/ prêmio)</div>`
+      : `<div class="res-price">${avg.toFixed(2)}</div><div class="res-unit">R$/MWh</div>`;
+  });
+}
+
+// ════════════════════════════════════
+// EXPORT PROPOSTA — WORD (.docx)
+// ════════════════════════════════════
+async function exportDocx() {
+  // Gather data
+  const contraparte = document.getElementById('contraparte').value || '[CONTRAPARTE]';
+  const cnpj        = document.getElementById('cnpj').value || '';
+  const comentarios = document.getElementById('comentarios').value || '';
+  const posicao  = sel.posicao  || 'compra';
+  const posLabel = posicao === 'compra' ? 'Compra' : 'Venda';
+  const sub      = sel.sub  || '[SUBMERCADO]';
+  const src      = sel.src  || '[FONTE]';
+  const srcLabel = src === 'Conv' ? 'Convencional' :
+                   src === 'I5'   ? 'Incentivada 50%' :
+                   src === 'I1'   ? 'Incentivada 100%' : src;
+  const tipo     = sel.tipo ? (sel.tipo.charAt(0).toUpperCase()+sel.tipo.slice(1)) : 'Indicativa';
+  const side     = posicao === 'compra' ? 'buy' : 'sell';
+  const today    = new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'});
+  const now      = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const flexPct  = params.flexPct || 0;
+  const sazoPct  = params.sazoPct || 0;
+  const volCen   = params.vol || 1.06;
+
+  // Build period rows data
+  const prodRows = periodRows.map((row, i) => {
+    const list = expandRange(row.start, row.end);
+    if (!row.start || !row.end || list.length === 0) return null;
+    const vols = getVolumes(i, list);
+    const hasVols = vols.every(v => v !== null && !isNaN(v));
+    const avg = calcWAvg(list, sub, src, side, hasVols ? vols : null);
+    const mwhTotal = hasVols ? list.reduce((s,p,j) => s + p.hours * vols[j], 0) : null;
+    const mwmAvg   = hasVols && mwhTotal ? (mwhTotal / list.reduce((s,p)=>s+p.hours,0)) : null;
+    const startLbl = MONTH_KEYS.find(p=>p.key===row.start)?.label || row.start;
+    const endLbl   = MONTH_KEYS.find(p=>p.key===row.end)?.label   || row.end;
+
+    // Format start/end as DD/MM/YYYY (first/last day of month)
+    const [sy, sm] = row.start.split('-').map(Number);
+    const [ey, em] = row.end.split('-').map(Number);
+    const lastDay  = new Date(ey, em, 0).getDate();
+    const startFmt = `01/${String(sm).padStart(2,'0')}/${sy}`;
+    const endFmt   = `${lastDay}/${String(em).padStart(2,'0')}/${ey}`;
+
+    return {
+      num: i+1, startFmt, endFmt, startLbl, endLbl,
+      avgFlat: avg !== null ? avg.toFixed(2) : '—',
+      avgFinal: avg !== null ? (avg + (params._premFlex||0) + (params._premSazo||0)).toFixed(2) : '—',
+      avg: avg !== null ? (avg + (params._premFlex||0) + (params._premSazo||0)).toFixed(2) : '—',
+      mwmAvg: mwmAvg !== null ? mwmAvg.toFixed(3) : '—',
+      mwhTotal: mwhTotal !== null ? mwhTotal.toFixed(0) : '—',
+      nonStd: isNonStandard(row.start, row.end),
+      months: list.map((p,j) => ({
+        label: p.label, hours: p.hours,
+        vol: hasVols ? vols[j].toFixed(3) : '—',
+        price: (() => { const pv=getP(sub,src,priceKey(p.key)); return pv[side]?.toFixed(2) || '—'; })()
+      }))
+    };
+  }).filter(Boolean);
+
+  if (prodRows.length === 0) { toast('⚠ Nenhum período preenchido'); return; }
+
+  // Periodos de suprimento total
+  const allStarts = prodRows.map(r => r.startFmt);
+  const allEnds   = prodRows.map(r => r.endFmt);
+  const periodoTotal = `${allStarts[0]} a ${allEnds[allEnds.length-1]}`;
+
+  // Volume block text
+  const volBlock = prodRows.map(r =>
+    `${r.startFmt} a ${r.endFmt}   ${r.mwmAvg} MW Médios`
+  ).join('\n');
+
+  // Price block text
+  const priceBlock = prodRows.map(r =>
+    `${r.startFmt} a ${r.endFmt}   R$ ${r.avg}/MWh`
+  ).join('\n');
+
+  // Sub label
+  const subLabel = sub === 'SE/CO' ? 'Centro de Gravidade do Submercado Sudeste' :
+                   sub === 'S'     ? 'Centro de Gravidade do Submercado Sul' :
+                   sub === 'NE'    ? 'Centro de Gravidade do Submercado Nordeste' :
+                   sub === 'N'     ? 'Centro de Gravidade do Submercado Norte' : sub;
+
+  // Flex / Sazo text
+  const flexText = flexPct > 0
+    ? `+/- ${flexPct}%, devendo ser informado o fator (%) de atendimento da carga até a assinatura do contrato ou 30 dias antes do início de suprimento.`
+    : `N/A`;
+  const sazoText = sazoPct > 0
+    ? `+/- ${sazoPct}%, devendo ser mantido o volume total anual de energia em MWh e informado até 01/10 do ano anterior ao fornecimento.`
+    : `N/A`;
+  const premFlex  = params._premFlex  ? `R$ ${params._premFlex.toFixed(2)}/MWh`  : null;
+  const premSazo  = params._premSazo  ? `R$ ${params._premSazo.toFixed(2)}/MWh`  : null;
+  const premTotal = params._premTotal ? `R$ ${params._premTotal.toFixed(2)}/MWh` : null;
+
+  generateWordHTML({
+    contraparte, cnpj, posLabel, sub, subLabel, src, srcLabel, tipo, today, now,
+    periodoTotal, volBlock, priceBlock, flexText, sazoText, prodRows,
+    obs: comentarios, flexPct, sazoPct, premFlex, premSazo, premTotal
+  });
+}
+
+function generateWordHTML(d) {
+  // Logo block
+  var logoBlock = '<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:14px;border-bottom:3px solid #00c896;padding-bottom:10px"><tr>' +
+    '<td style="vertical-align:middle;width:52px"><div style="width:44px;height:44px;background:#00c896;border-radius:8px;text-align:center;line-height:44px;font-family:Arial;font-weight:900;font-size:24px;color:#000">T</div></td>' +
+    '<td style="vertical-align:middle;padding-left:10px">' +
+      '<div style="font-family:Arial,sans-serif;font-size:15pt;font-weight:bold;color:#0f2a1e">TRIA ENERGIA</div>' +
+      '<div style="font-family:Arial,sans-serif;font-size:9pt;color:#555;margin-top:2px">Proposta de ' + d.posLabel + ' de Energia El\u00e9trica \u00b7 ' + (d.srcLabel||d.src) + '</div>' +
+    '</td>' +
+    '<td style="vertical-align:middle;text-align:right;font-family:Arial,sans-serif;font-size:9pt;color:#555">' +
+      'Data: <b>' + d.today + '</b><br>Tipo: <b>' + (d.tipo||'Indicativa') + '</b>' +
+    '</td>' +
+  '</tr></table>';
+
+  // Price rows
+  var prodSection = (d.prodRows||[]).map(function(r) {
+    if (!r||!r.startFmt) return '';
+    return '<tr><td style="padding:5px 10px;border:1px solid #ccc;background:#f5f5f5;font-size:9pt">' + r.startFmt + ' a ' + r.endFmt + '</td>' +
+      '<td style="padding:5px 10px;border:1px solid #ccc;text-align:right;font-weight:bold;font-size:9pt">R$ ' + (r.avg||'\u2014') + '</td></tr>';
+  }).join('');
+
+  // Volume
+  var volSection = (d.prodRows||[]).map(function(r) {
+    if (!r||!r.startFmt) return '';
+    if (r.volMode==='scaled' && r.monthVolumes && r.monthVolumes.length) {
+      return r.monthVolumes.map(function(mv){ return mv.label+': '+mv.val+' '+mv.unit; }).join('<br>');
+    }
+    var u = r.volUnit==='mwh' ? 'MWh' : 'MW M\u00e9dios';
+    return r.startFmt+' a '+r.endFmt+'&nbsp;&nbsp;'+(r.rawVolFixed||r.mwmAvg||'\u2014')+' '+u;
+  }).filter(Boolean).join('<br><br>');
+
+  var isCompra = d.posLabel==='Compra';
+
+  // ReTUSD by fonte
+  var retusdText;
+  if (d.src==='I1') retusdText = 'R$ 70,00/MWh';
+  else if (d.src==='I5') retusdText = 'R$ 35,00/MWh';
+  else retusdText = 'N\u00e3o se aplica.';
+  if (d.retusd!==null && d.retusd!==undefined && d.src!=='Conv' && d.src!=='I0') {
+    retusdText = 'R$ '+parseFloat(d.retusd).toFixed(2)+'/MWh';
+  }
+
+  // Data Base = 01 of current month
+  var now2 = new Date();
+  var dataBase = '01/'+String(now2.getMonth()+1).padStart(2,'0')+'/'+now2.getFullYear();
+  var reajuste = d.reajuste||'IPCA';
+  var semReajuste = !reajuste || reajuste==='Sem reajuste';
+  var fr = d.prodRows && d.prodRows[0];
+  var dataBaseText;
+  if (semReajuste) {
+    dataBaseText = dataBase+'. N\u00e3o h\u00e1 reajuste previsto neste contrato.';
+  } else {
+    var supStart = (fr&&fr.startFmt) ? '01/'+fr.startFmt.split('/').slice(1).join('/') : dataBase;
+    var supY = (fr&&fr.startFmt) ? parseInt(fr.startFmt.split('/')[2]) : now2.getFullYear();
+    var supM = (fr&&fr.startFmt) ? parseInt(fr.startFmt.split('/')[1]) : now2.getMonth()+1;
+    var nextJan = '01/01/'+(supM===1?supY:supY+1);
+    var reajAte = dataBase===supStart ? '' : ' O pre\u00e7o ser\u00e1 reajustado pela varia\u00e7\u00e3o acumulada do '+reajuste+' entre '+dataBase+' e '+supStart+', in\u00edcio do suprimento.';
+    dataBaseText = dataBase+'.'+reajAte+' A partir de '+nextJan+', e em janeiro de cada ano, o pre\u00e7o ser\u00e1 reajustado pela varia\u00e7\u00e3o acumulada do '+reajuste+' acordado entre as partes.';
+  }
+
+  // Pagamento
+  var pagamento = (d.pagamento && d.pagamento!=='undefined') ? d.pagamento : '6\u00ba du do m\u00eas subsequente ao m\u00eas de fornecimento';
+  var pagText = pagamento+'. Caso a COMPRADORA deixe de pagar qualquer fatura at\u00e9 seu vencimento, ficar\u00e1 sujeita ao pagamento de multa de 2% sobre o valor total da fatura, acrescido de juros de 1% ao m\u00eas, pro rata tempore, corrigido pelo IGP-M.';
+
+  // Garantia
+  var garantiaTipo = (d.garantiaTipo && d.garantiaTipo!=='undefined') ? d.garantiaTipo : (isCompra?'Registro Contra Pagamento':'Fian\u00e7a Banc\u00e1ria ou Seguro Garantia');
+  var garantiaMeses = d.garantiaMeses||3;
+  var garantiaText = garantiaTipo==='Registro Contra Pagamento' ? 'Registro Contra Pagamento.'
+    : garantiaTipo+' referente a '+garantiaMeses+' '+(parseInt(garantiaMeses)===1?'m\u00eas':'meses')+' de faturamento m\u00e9dio mensal, de institui\u00e7\u00e3o aprovada pela Tria.';
+
+  // Validade
+  var validadeText;
+  if (d.tipo==='Firme' && d.valData) {
+    var vp = d.valData.split('-');
+    var vd = vp.length===3 ? vp[2]+'/'+vp[1]+'/'+vp[0] : d.valData;
+    validadeText = '<b>Firme.</b> V\u00e1lida at\u00e9 '+vd+(d.valHora?' \u00e0s '+d.valHora+'h (Bras\u00edlia / GMT-3)':'')+'.';
+  } else {
+    validadeText = '<b>'+(d.tipo||'Indicativa')+'.</b>';
+  }
+
+  // Sazo/Flex
+  var flexPct = d.flexPct||0, sazoPct = d.sazoPct||0;
+  var flexText = (isCompra||!flexPct)?'N/A':'+/- '+flexPct+'%, atrelado \u00e0 medi\u00e7\u00e3o do consumidor, informar at\u00e9 30 dias antes do in\u00edcio.';
+  var sazoText = sazoPct?'+/- '+sazoPct+'%, manter volume anual em MWh, informar at\u00e9 15/10 do ano anterior.':'N/A';
+
+  // Legal price text
+  var priceLegal = isCompra
+    ? 'Pre\u00e7os l\u00edquidos de tributos para suprimento a partir de 2027. Impostos criados pela EC 132/2023 ser\u00e3o destacados e acrescidos ao total da NF. N\u00e3o inclusos: ICMS, IR, Perdas, TUSD/TUST, ESS e demais encargos.'
+    : 'Pre\u00e7o refere-se \u00e0 Energia no Ponto de Entrega, incorporando riscos, tributos, tarifas e encargos at\u00e9 o Ponto de Entrega. Custos da CCEE n\u00e3o arcados pela Vendedora ser\u00e3o repassados \u00e0 Compradora.';
+
+  // Comprador/Vendedor
+  var cnpjLine = d.cnpj?'<br><span style="font-size:8pt;color:#555">CNPJ: '+d.cnpj+'</span>':'';
+  var unidLine = d.nomeUnidade?'<br><span style="font-size:8pt;color:#555">Unidade: '+d.nomeUnidade+'</span>':'';
+  var ctBlock = '<b>'+(d.contraparte||'').toUpperCase()+'</b>'+cnpjLine+unidLine;
+  var vendedor = isCompra ? ctBlock : '<b>TRIA ENERGIA</b>';
+  var comprador = isCompra ? '<b>TRIA ENERGIA</b>' : ctBlock;
+
+  var s1='padding:5px 10px;border:1px solid #ccc;width:22%;vertical-align:top;font-size:9pt;font-family:Arial,sans-serif;background:#f0f0f0;font-weight:bold;';
+  var s2='padding:5px 10px;border:1px solid #ccc;vertical-align:top;font-size:9pt;font-family:Arial,sans-serif;';
+
+  var rows = [
+    ['Vendedor', vendedor],['Comprador', comprador],
+    ['Tipo de Fonte', d.srcLabel||d.src],
+    ['Ponto de Entrega', d.subLabel||d.sub],
+    ['Volume Mensal Contratado', volSection||'\u2014'],
+    ['Per\u00edodo de Suprimento', d.periodoTotal||'\u2014'],
+    ['Sazonalidade', sazoText],['Flexibilidade', flexText],
+    ['Modula\u00e7\u00e3o', d.modulacao||'Flat'],
+    ['Pre\u00e7o',
+      '<table width="100%" style="border-collapse:collapse;margin-bottom:6px">' +
+        '<tr><th style="padding:5px 10px;border:1px solid #ccc;background:#0f2a1e;color:#fff;text-align:left;font-size:9pt">Per\u00edodo</th>' +
+            '<th style="padding:5px 10px;border:1px solid #ccc;background:#0f2a1e;color:#fff;text-align:right;font-size:9pt">Pre\u00e7o (R$/MWh)</th></tr>' +
+        prodSection+'</table>'+priceLegal],
+    ['ReTUSD', retusdText],
+    ['\u00cdndice de Reajuste', semReajuste?'N\u00e3o h\u00e1 reajuste previsto.':reajuste],
+    ['Data Base', dataBaseText],
+    ['Pagamento', pagText],
+    ['Garantia do Contrato', garantiaText],
+    ['Aceite da Proposta', 'Uma vez aceita, as Partes dever\u00e3o assinar o Contrato em at\u00e9 30 dias.'],
+    ['Registro da Energia', 'Registro Contra Pagamento. Em caso de cancelamento pela CCEE, a VENDEDORA ressarcir\u00e1 a COMPRADORA pelos preju\u00edzos decorrentes.'],
+  ];
+  if (d.irec==='Sim') rows.push(['I-REC','Incluso. Fonte: '+(d.irecFonte||'\u2014')+(d.irecCusto?'. Custo: R$ '+parseFloat(d.irecCusto).toFixed(2)+'/MWh j\u00e1 incorporado.':'.')]);
+  if (d.obs&&d.obs.trim()) rows.push(['Coment\u00e1rios', d.obs+'<br><br><i>Parte integrante desta proposta.</i>']);
+  rows.push(['Validade da Proposta', validadeText]);
+
+  var tableRows = rows.map(function(r){
+    return '<tr><td style="'+s1+'">'+r[0]+'</td><td style="'+s2+'">'+r[1]+'</td></tr>';
+  }).join('');
+
+  var html = '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
+    '<head><meta charset="UTF-8"><style>' +
+    '@page{size:A4 portrait;margin:1.5cm 1.8cm}body{font-family:Arial,sans-serif;font-size:9pt;margin:0}table{border-collapse:collapse;width:100%}b{font-weight:bold}' +
+    '</style></head><body>' +
+    logoBlock +
+    '<table style="width:100%;border-collapse:collapse;border:1px solid #999">'+tableRows+'</table>' +
+    '<p style="margin-top:12px;font-size:7pt;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:6px">' +
+    'Tria Energia \u00b7 contato@triaenergia.com.br \u00b7 Gerada em '+d.today+' '+d.now+' \u00b7 Sujeita \u00e0 confirma\u00e7\u00e3o da Mesa de Opera\u00e7\u00f5es.</p>' +
+    '</body></html>';
+
+  var fname = ['Tria','Proposta',d.tipo||'Indicativa',d.posLabel,
+    (d.contraparte||'').replace(/[^a-zA-Z0-9]/g,'_').substring(0,20),
+    d.today.replace(/\//g,'-')].join('_')+'.doc';
+  var blob = new Blob(['\ufeff',html],{type:'application/msword;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = fname;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(a.href);
+  toast('Proposta gerada com sucesso');
+  // Log proposal to Supabase (fire and forget)
+  logProposal({
+    tipo: d.tipo, posicao: d.posLabel, contraparte: d.contraparte,
+    cnpj: d.cnpj, sub: d.sub, src: d.src,
+    periodos: (d.prodRows||[]).map(function(r){return {start:r&&r.startFmt,end:r&&r.endFmt,avg:r&&r.avg};}),
+    precoMedio: null
+  });
+}
+
+
+
+
+// ════════════════════════════════════
+// ADMIN — USER MANAGEMENT
+// ════════════════════════════════════
+async function saveNewUser() {
+  const email = document.getElementById('new-user-email').value.trim().toLowerCase();
+  const name  = document.getElementById('new-user-name').value.trim();
+  const pin   = document.getElementById('new-user-pin').value.trim();
+  const role  = document.getElementById('new-user-role').value;
+  if (!email || !name || pin.length !== 4) {
+    toast('⚠ Preencha e-mail, nome e PIN de 4 dígitos'); return;
+  }
+  await addUser(email, pin, name, role);
+  document.getElementById('new-user-email').value = '';
+  document.getElementById('new-user-name').value  = '';
+  document.getElementById('new-user-pin').value   = '';
+  await renderUserList();
+  toast('✓ Usuário salvo');
+}
+
+async function renderUserList() {
+  const users = await loadUsers();
+  const el = document.getElementById('user-list');
+  if (!el) return;
+  const entries = Object.entries(users);
+  if (!entries.length) { el.textContent = 'Nenhum usuário cadastrado.'; return; }
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">E-MAIL</th>
+        <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">NOME</th>
+        <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">PERFIL</th>
+        <th style="text-align:center;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">AÇÃO</th>
+      </tr></thead>
+      <tbody>
+        ${entries.map(([email, u]) => `
+          <tr>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text)">${email}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text)">${u.name}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border)">
+              <span style="background:${u.role==='admin'?'rgba(96,165,250,.15)':'rgba(74,222,128,.1)'};
+                color:${u.role==='admin'?'var(--blue)':'var(--green)'};
+                border:1px solid ${u.role==='admin'?'rgba(96,165,250,.4)':'rgba(74,222,128,.3)'};
+                border-radius:4px;padding:2px 8px;font-size:10px">
+                ${u.role==='admin'?'Admin':'Comercial'}
+              </span>
+            </td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:center">
+              <button onclick="removeUser('${email}')"
+                style="background:transparent;border:1px solid var(--border);border-radius:5px;
+                  color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;
+                  padding:3px 10px;cursor:pointer"
+                onmouseover="this.style.borderColor='var(--panic)';this.style.color='var(--panic)'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+                remover
+              </button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function removeUser(email) {
+  if (email === currentUser?.email) { toast('⚠ Não pode remover o usuário logado'); return; }
+  if (!confirm(`Remover ${email}?`)) return;
+  const users = await loadUsers();
+  delete users[email];
+  await window.storage.set('tria-users', JSON.stringify(users));
+  await renderUserList();
+  toast('Usuário removido');
+}
+
+// ════════════════════════════════════
+// AUTH — LOGIN / LOGOUT
+// ════════════════════════════════════
+
+// Default users (email → PIN hash).
+// In production these would come from a secure backend.
+// PIN is stored as a simple 4-digit string in storage (not plaintext in code).
+// Admin can add users via storage key 'tria-users'.
+const DEFAULT_USERS = {
+  'admin@triaenergia.com.br': { pin: '1234', name: 'Admin', role: 'admin' },
+};
+
+async function loadUsers() {
+  try {
+    const r = await window.storage.get('tria-users');
+    if (r) return { ...DEFAULT_USERS, ...JSON.parse(r.value) };
+  } catch(_) {}
+  return DEFAULT_USERS;
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const pin   = document.getElementById('login-pin').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+
+  if (!email || !pin) { errEl.textContent = 'Preencha e-mail e PIN.'; return; }
+  if (pin.length !== 4) { errEl.textContent = 'PIN deve ter 4 dígitos.'; return; }
+
+  const users = await loadUsers();
+  const user  = users[email];
+
+  if (!user || user.pin !== pin) {
+    errEl.textContent = 'E-mail ou PIN incorretos.';
+    // Log failed attempt
+    await logAccess(email, 'login_failed');
+    return;
+  }
+
+  // Success
+  currentUser = { email, name: user.name, role: user.role };
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('user-badge').style.display = 'flex';
+  document.getElementById('user-name-badge').textContent = user.name;
+
+  // Show/hide admin tab based on role
+  const adminTab = document.querySelector('.nav-tab[onclick*="admin"]');
+  if (adminTab && user.role !== 'admin') adminTab.style.display = 'none';
+
+  await logAccess(email, 'login_ok', user.name);
+  toast(`Bem-vindo, ${user.name}`);
+}
+
+async function doLogout() {
+  if (!confirm('Sair do Tria Price?')) return;
+  await logAccess(currentUser?.email, 'logout', currentUser?.name);
+  currentUser = null;
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('user-badge').style.display = 'none';
+  document.getElementById('login-pin').value = '';
+  document.getElementById('login-error').textContent = '';
+}
+
+async function logAccess(email, event, name) {
+  try {
+    const r = await window.storage.get('tria-log');
+    const log = r ? JSON.parse(r.value) : [];
+    log.push({
+      ts: new Date().toISOString(),
+      email: email || '?',
+      name: name || '?',
+      event,
+      ua: navigator.userAgent.substring(0, 80)
+    });
+    // Keep last 500 entries
+    if (log.length > 500) log.splice(0, log.length - 500);
+    await window.storage.set('tria-log', JSON.stringify(log));
+  } catch(_) {}
+}
+
+// Admin: add/update user
+async function addUser(email, pin, name, role) {
+  const users = await loadUsers();
+  users[email.toLowerCase()] = { pin, name, role: role || 'user' };
+  await window.storage.set('tria-users', JSON.stringify(users));
+  return true;
+}
+
+// ════════════════════════════════════
+// INIT
+// ════════════════════════════════════
+
+// ════════════════════════════════════
+// AUTOCOMPLETE — CONTRAPARTES CCEE
+// ════════════════════════════════════
+let acTimeout = null;
+function acSearch(q) {
+  clearTimeout(acTimeout);
+  acTimeout = setTimeout(() => {
+    const dd = document.getElementById('ac-dropdown');
+    const term = q.trim().toLowerCase().replace(/[.\/\-]/g,'');
+    if (term.length < 2) { acClose(); return; }
+    const results = AGENTS.filter(a => {
+      const cnpjClean = a.c.replace(/[.\/\-]/g,'').toLowerCase();
+      return a.n.toLowerCase().includes(term) || cnpjClean.includes(term);
+    }).slice(0, 30);
+    if (!results.length) { acClose(); return; }
+    window._acResults = results;
+    dd.innerHTML = results.map((a, idx) =>
+      '<div class="ac-item" onmousedown="acSelect(' + idx + ')">' +
+      '<div class="ac-item-name">' + a.n + '<span class="ac-badge">' + a.k + '</span></div>' +
+      '<div class="ac-item-sub">' + a.c + ' · ' + a.s + ' · ' + a.u + '</div>' +
+      '</div>'
+    ).join('');
+    dd.classList.add('open');
+  }, 120);
+}
+function acSelect(idx) {
+  const a = (window._acResults || [])[idx];
+  if (!a) return;
+  const el = document.getElementById('contraparte');
+  if (el) el.value = a.n;
+  const cnpjEl = document.getElementById('cnpj');
+  if (cnpjEl) cnpjEl.value = a.c;
+  const agEl = document.getElementById('agente-ccee');
+  if (agEl) agEl.value = a.s;
+  const clEl = document.getElementById('agente-classe');
+  if (clEl) clEl.value = a.k;
+  acClose();
+}
+function acClose() {
+  const dd = document.getElementById('ac-dropdown');
+  if (dd) dd.classList.remove('open');
+}
+
+// ════════════════════════════════════
+// ADMIN TABS
+// ════════════════════════════════════
+function showAdminTab(tab, btn) {
+  ['prices','users','logs','proposals'].forEach(function(t) {
+    const el = document.getElementById('admin-tab-' + t);
+    if (el) el.style.display = t === tab ? 'block' : 'none';
+    const b = document.getElementById('atab-' + t);
+    if (b) b.classList.toggle('active', t === tab);
+  });
+  if (tab === 'users') renderUserList();
+  if (tab === 'logs') renderAccessLog();
+  if (tab === 'proposals') renderProposalsLog();
+}
+
+(async()=>{
+  await load();
+  // Start with 4 empty period rows
+  for (let i=0;i<INIT_PERIODS;i++) periodRows.push({start:null,end:null,volumes:{}});
+  renderSummary();
+  renderPeriodRows();
+  renderResults();
+})();
+</script>
+</body>
+</html>
