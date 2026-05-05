@@ -1206,7 +1206,7 @@ async function doLogin() {
 
     // Hash PIN client-side and query directly
     const pinHash = await hashPIN(pin);
-    const users = await sbFetch('users?email=eq.' + encodeURIComponent(email) + '&pin_hash=eq.' + pinHash + '&active=eq.true&select=id,email,name,role');
+    const users = await sbFetch('tp_users?email=eq.' + encodeURIComponent(email) + '&pin_hash=eq.' + pinHash + '&active=eq.true&select=id,email,name,role');
     if (!users || users.length === 0) {
       errEl.textContent = 'E-mail ou PIN incorretos.';
       await logAccess(null, email, 'login_failed');
@@ -1262,7 +1262,7 @@ async function doLogout() {
 
 async function logAccess(userId, email, event, name) {
   try {
-    await sbFetch('access_log', 'POST', {
+    await sbFetch('tp_access_log', 'POST', {
       user_id: userId || null,
       email: email,
       name: name || null,
@@ -1278,7 +1278,7 @@ async function logAccess(userId, email, event, name) {
 async function logProposal(data) {
   if (!currentUser) return;
   try {
-    await sbFetch('proposals', 'POST', {
+    await sbFetch('tp_proposals', 'POST', {
       user_id: currentUser.id,
       user_name: currentUser.name,
       user_email: currentUser.email,
@@ -1298,7 +1298,7 @@ async function logProposal(data) {
 // USER MANAGEMENT (Admin)
 // ════════════════════════════════════
 async function loadUsers() {
-  return await sbFetch('users?order=name&select=id,email,name,role,active,created_at');
+  return await sbFetch('tp_users?order=name&select=id,email,name,role,active,created_at');
 }
 
 async function saveNewUser() {
@@ -1309,7 +1309,7 @@ async function saveNewUser() {
   if (!email || !name || pin.length !== 4) { toast('Preencha e-mail, nome e PIN de 4 dígitos'); return; }
   try {
     const pinHash = await hashPIN(pin);
-    await sbFetch('users', 'POST', {
+    await sbFetch('tp_users', 'POST', {
       email, name, role, pin_hash: pinHash,
       created_by: currentUser?.id || null
     });
@@ -1326,7 +1326,7 @@ async function saveNewUser() {
 async function removeUser(id) {
   if (id === currentUser?.id) { toast('Não pode remover o usuário logado'); return; }
   if (!confirm('Desativar este usuário?')) return;
-  await sbFetch('users?id=eq.' + id, 'PATCH', { active: false });
+  await sbFetch('tp_users?id=eq.' + id, 'PATCH', { active: false });
   await renderUserList();
   toast('Usuário desativado');
 }
@@ -1367,7 +1367,7 @@ async function renderAccessLog() {
   const el = document.getElementById('access-log-content');
   if (!el) return;
   try {
-    const logs = await sbFetch('access_log?order=ts.desc&limit=100&select=ts,name,email,event');
+    const logs = await sbFetch('tp_access_log?order=ts.desc&limit=100&select=ts,name,email,event');
     el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:11px">' +
       '<thead><tr>' +
         ['Data/Hora','Usuário','E-mail','Evento'].map(h =>
@@ -1395,7 +1395,7 @@ async function renderProposalsLog() {
   const el = document.getElementById('proposals-log-content');
   if (!el) return;
   try {
-    const props = await sbFetch('proposals?order=ts.desc&limit=100&select=ts,user_name,tipo,posicao,contraparte,submercado,fonte,preco_medio');
+    const props = await sbFetch('tp_proposals?order=ts.desc&limit=100&select=ts,user_name,tipo,posicao,contraparte,submercado,fonte,preco_medio');
     el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
       '<thead><tr>' +
         ['Data/Hora','Usuário','Tipo','Posição','Contraparte','Sub','Fonte','Preço'].map(h =>
