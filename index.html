@@ -1186,8 +1186,8 @@ async function sbFetch(path, method, body) {
 
 // Simple PIN hash (SHA-256)
 async function hashPIN(pin) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  // Banco armazena PIN em texto puro — verify_pin compara direto
+  return pin;
 }
 
 // ════════════════════════════════════
@@ -1334,30 +1334,74 @@ async function removeUser(id) {
 async function renderUserList() {
   const el = document.getElementById('user-list');
   if (!el) return;
+  el.textContent = 'Carregando...';
   try {
-    const users = await loadUsers();
-    el.innerHTML = '<table style="width:100%;border-collapse:collapse">' +
+    const users = await sbFetch('tp_users?order=name&select=id,email,name,role,active,pin_hash,created_at');
+    if (!users || users.length === 0) { el.textContent = 'Nenhum usuário encontrado.'; return; }
+    el.innerHTML =
+      '<table style="width:100%;border-collapse:collapse">' +
       '<thead><tr>' +
-        '<th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">E-MAIL</th>' +
-        '<th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">NOME</th>' +
-        '<th style="padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">PERFIL</th>' +
-        '<th style="padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">AÇÃO</th>' +
+        '<th style="text-align:left;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">E-MAIL</th>' +
+        '<th style="text-align:left;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">NOME</th>' +
+        '<th style="text-align:center;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">PERFIL</th>' +
+        '<th style="text-align:center;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">PIN</th>' +
+        '<th style="text-align:center;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">STATUS</th>' +
+        '<th style="text-align:center;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">AÇÕES</th>' +
       '</tr></thead><tbody>' +
       users.map(function(u) {
         var roleColor = u.role==='admin'?'var(--blue)':u.role==='comercial'?'var(--green)':'var(--muted2)';
-        return '<tr>' +
-          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);font-family:monospace;font-size:11px;color:var(--text)">' + u.email + '</td>' +
-          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text)">' + u.name + '</td>' +
-          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:center">' +
-            '<span style="background:rgba(0,0,0,.2);color:'+roleColor+';border-radius:4px;padding:2px 8px;font-size:10px;font-family:monospace">' + u.role + '</span>' +
+        var pinDisplay = u.pin_hash && u.pin_hash.length <= 6 ? u.pin_hash : '••••';
+        var statusBadge = u.active
+          ? '<span style="color:var(--green);font-size:10px;font-family:monospace">● ativo</span>'
+          : '<span style="color:var(--muted);font-size:10px;font-family:monospace">○ inativo</span>';
+        return '<tr style="opacity:' + (u.active ? '1' : '0.45') + '">' +
+          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);font-family:monospace;font-size:11px;color:var(--text)">' + u.email + '</td>' +
+          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text)">' + u.name + '</td>' +
+          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:center">' +
+            '<span style="background:rgba(0,0,0,.3);color:' + roleColor + ';border-radius:4px;padding:2px 8px;font-size:10px;font-family:monospace">' + u.role + '</span>' +
           '</td>' +
-          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:center">' +
-            (u.active ? '<button onclick="removeUser(\'' + u.id + '\')" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:11px;padding:3px 10px;cursor:pointer">desativar</button>' : '<span style="color:var(--muted);font-size:11px">inativo</span>') +
+          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:center;font-family:monospace;font-size:13px;letter-spacing:3px;color:var(--muted2)" id="pin-cell-' + u.id + '">' +
+            '••••' +
+          '</td>' +
+          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:center">' + statusBadge + '</td>' +
+          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:center">' +
+            '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">' +
+              '<button onclick="showPin(\'' + u.id + '\',\'' + pinDisplay + '\')" title="Ver PIN" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted2);font-size:10px;padding:3px 8px;cursor:pointer">👁 PIN</button>' +
+              '<button onclick="resetPin(\'' + u.id + '\',\'' + u.email + '\')" title="Resetar PIN" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--yellow);font-size:10px;padding:3px 8px;cursor:pointer">🔑 Reset</button>' +
+              (u.active
+                ? '<button onclick="removeUser(\'' + u.id + '\')" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--red);font-size:10px;padding:3px 8px;cursor:pointer">✕ Desativar</button>'
+                : '<button onclick="reactivateUser(\'' + u.id + '\')" style="background:transparent;border:1px solid rgba(74,222,128,.3);border-radius:5px;color:var(--green);font-size:10px;padding:3px 8px;cursor:pointer">✓ Reativar</button>') +
+            '</div>' +
           '</td>' +
         '</tr>';
       }).join('') +
       '</tbody></table>';
   } catch(e) { el.textContent = 'Erro ao carregar usuários: ' + e.message; }
+}
+
+function showPin(id, pin) {
+  const el = document.getElementById('pin-cell-' + id);
+  if (!el) return;
+  if (el.textContent === '••••') { el.textContent = pin; el.style.color = 'var(--yellow)'; }
+  else { el.textContent = '••••'; el.style.color = 'var(--muted2)'; }
+}
+
+async function resetPin(id, email) {
+  const newPin = prompt('Novo PIN para ' + email + ' (4 dígitos):');
+  if (!newPin || newPin.length !== 4 || !/^[0-9]{4}$/.test(newPin)) {
+    toast('⚠ PIN deve ter exatamente 4 dígitos numéricos'); return;
+  }
+  try {
+    await sbFetch('tp_users?id=eq.' + id, 'PATCH', { pin_hash: newPin });
+    await renderUserList();
+    toast('✓ PIN de ' + email + ' atualizado para ' + newPin);
+  } catch(e) { toast('Erro: ' + e.message); }
+}
+
+async function reactivateUser(id) {
+  await sbFetch('tp_users?id=eq.' + id, 'PATCH', { active: true });
+  await renderUserList();
+  toast('✓ Usuário reativado');
 }
 
 // ════════════════════════════════════
