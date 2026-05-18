@@ -2800,6 +2800,17 @@ function showAdminTab(tab, btn) {
 
 (async()=>{
   await load();
+
+  // AUTO-LOGIN — sem autenticação
+  currentUser = { id: null, email: 'admin@triaenergia.com.br', name: 'Tria Energia', role: 'admin' };
+  const ls = document.getElementById('login-screen');
+  if (ls) ls.style.display = 'none';
+  const ub = document.getElementById('user-badge');
+  if (ub) ub.style.display = 'flex';
+  const nb = document.getElementById('user-name-badge');
+  if (nb) nb.textContent = 'Tria Energia';
+  setTimeout(applyVolVisibility, 100);
+
   // Start with 4 empty period rows
   for (let i=0;i<INIT_PERIODS;i++) periodRows.push({start:null,end:null,volumes:{}});
   renderSummary();
