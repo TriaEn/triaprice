@@ -2372,7 +2372,7 @@ async function exportDocx() {
       months: list.map((p,j) => ({
         label: p.label, hours: p.hours,
         vol: hasVols ? vols[j].toFixed(3) : '—',
-        price: (() => { const pv=getP(sub,src,priceKey(p.key)); return pv[side]? || '—'; })()
+        price: (() => { const pv=getP(sub,src,priceKey(p.key)); return pv[side] ? pv[side] : '—'; })()
       }))
     };
   }).filter(Boolean);
