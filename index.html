@@ -788,7 +788,7 @@
 <body>
 
 <!-- LOGIN SCREEN -->
-<div id="login-screen">
+<div id="login-screen" style="display:none">
   <div class="login-box">
     <div class="login-logo">
       <img src="https://triaenergia.com.br/wp-content/uploads/elementor/thumbs/logo-tria-rix8mlin33srrqa4j3bmavnrrxln8tmayqyupd85eo.png"
@@ -1186,8 +1186,8 @@ async function sbFetch(path, method, body) {
 
 // Simple PIN hash (SHA-256)
 async function hashPIN(pin) {
-  // Banco armazena PIN em texto puro — verify_pin compara direto
-  return pin;
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
 // ════════════════════════════════════
@@ -1334,74 +1334,30 @@ async function removeUser(id) {
 async function renderUserList() {
   const el = document.getElementById('user-list');
   if (!el) return;
-  el.textContent = 'Carregando...';
   try {
-    const users = await sbFetch('tp_users?order=name&select=id,email,name,role,active,pin_hash,created_at');
-    if (!users || users.length === 0) { el.textContent = 'Nenhum usuário encontrado.'; return; }
-    el.innerHTML =
-      '<table style="width:100%;border-collapse:collapse">' +
+    const users = await loadUsers();
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse">' +
       '<thead><tr>' +
-        '<th style="text-align:left;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">E-MAIL</th>' +
-        '<th style="text-align:left;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">NOME</th>' +
-        '<th style="text-align:center;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">PERFIL</th>' +
-        '<th style="text-align:center;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">PIN</th>' +
-        '<th style="text-align:center;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">STATUS</th>' +
-        '<th style="text-align:center;padding:7px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">AÇÕES</th>' +
+        '<th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">E-MAIL</th>' +
+        '<th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">NOME</th>' +
+        '<th style="padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">PERFIL</th>' +
+        '<th style="padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">AÇÃO</th>' +
       '</tr></thead><tbody>' +
       users.map(function(u) {
         var roleColor = u.role==='admin'?'var(--blue)':u.role==='comercial'?'var(--green)':'var(--muted2)';
-        var pinDisplay = u.pin_hash && u.pin_hash.length <= 6 ? u.pin_hash : '••••';
-        var statusBadge = u.active
-          ? '<span style="color:var(--green);font-size:10px;font-family:monospace">● ativo</span>'
-          : '<span style="color:var(--muted);font-size:10px;font-family:monospace">○ inativo</span>';
-        return '<tr style="opacity:' + (u.active ? '1' : '0.45') + '">' +
-          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);font-family:monospace;font-size:11px;color:var(--text)">' + u.email + '</td>' +
-          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text)">' + u.name + '</td>' +
-          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:center">' +
-            '<span style="background:rgba(0,0,0,.3);color:' + roleColor + ';border-radius:4px;padding:2px 8px;font-size:10px;font-family:monospace">' + u.role + '</span>' +
+        return '<tr>' +
+          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);font-family:monospace;font-size:11px;color:var(--text)">' + u.email + '</td>' +
+          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text)">' + u.name + '</td>' +
+          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:center">' +
+            '<span style="background:rgba(0,0,0,.2);color:'+roleColor+';border-radius:4px;padding:2px 8px;font-size:10px;font-family:monospace">' + u.role + '</span>' +
           '</td>' +
-          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:center;font-family:monospace;font-size:13px;letter-spacing:3px;color:var(--muted2)" id="pin-cell-' + u.id + '">' +
-            '••••' +
-          '</td>' +
-          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:center">' + statusBadge + '</td>' +
-          '<td style="padding:7px 10px;border-bottom:1px solid var(--border);text-align:center">' +
-            '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">' +
-              '<button onclick="showPin(\'' + u.id + '\',\'' + pinDisplay + '\')" title="Ver PIN" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted2);font-size:10px;padding:3px 8px;cursor:pointer">👁 PIN</button>' +
-              '<button onclick="resetPin(\'' + u.id + '\',\'' + u.email + '\')" title="Resetar PIN" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--yellow);font-size:10px;padding:3px 8px;cursor:pointer">🔑 Reset</button>' +
-              (u.active
-                ? '<button onclick="removeUser(\'' + u.id + '\')" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--red);font-size:10px;padding:3px 8px;cursor:pointer">✕ Desativar</button>'
-                : '<button onclick="reactivateUser(\'' + u.id + '\')" style="background:transparent;border:1px solid rgba(74,222,128,.3);border-radius:5px;color:var(--green);font-size:10px;padding:3px 8px;cursor:pointer">✓ Reativar</button>') +
-            '</div>' +
+          '<td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:center">' +
+            (u.active ? '<button onclick="removeUser(\'' + u.id + '\')" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:11px;padding:3px 10px;cursor:pointer">desativar</button>' : '<span style="color:var(--muted);font-size:11px">inativo</span>') +
           '</td>' +
         '</tr>';
       }).join('') +
       '</tbody></table>';
   } catch(e) { el.textContent = 'Erro ao carregar usuários: ' + e.message; }
-}
-
-function showPin(id, pin) {
-  const el = document.getElementById('pin-cell-' + id);
-  if (!el) return;
-  if (el.textContent === '••••') { el.textContent = pin; el.style.color = 'var(--yellow)'; }
-  else { el.textContent = '••••'; el.style.color = 'var(--muted2)'; }
-}
-
-async function resetPin(id, email) {
-  const newPin = prompt('Novo PIN para ' + email + ' (4 dígitos):');
-  if (!newPin || newPin.length !== 4 || !/^[0-9]{4}$/.test(newPin)) {
-    toast('⚠ PIN deve ter exatamente 4 dígitos numéricos'); return;
-  }
-  try {
-    await sbFetch('tp_users?id=eq.' + id, 'PATCH', { pin_hash: newPin });
-    await renderUserList();
-    toast('✓ PIN de ' + email + ' atualizado para ' + newPin);
-  } catch(e) { toast('Erro: ' + e.message); }
-}
-
-async function reactivateUser(id) {
-  await sbFetch('tp_users?id=eq.' + id, 'PATCH', { active: true });
-  await renderUserList();
-  toast('✓ Usuário reativado');
 }
 
 // ════════════════════════════════════
@@ -1625,43 +1581,38 @@ const PRELOADED_DATE = "2026-05-05T10:07:00.000Z";
 
 async function load() {
   try {
-    const rows = await sbFetch('config?key=in.(tria-prices,tria-meta)&select=key,value');
-    const map = {};
-    (rows || []).forEach(r => { map[r.key] = r.value; });
-
-    if (map['tria-prices']) {
-      prices = JSON.parse(map['tria-prices']);
+    const r = await window.storage.get('tria-prices');
+    if (r) {
+      prices = JSON.parse(r.value);
     } else {
+      // First load: use preloaded prices from LP 24/04/2026
       prices = JSON.parse(JSON.stringify(PRELOADED_PRICES));
+      await window.storage.set('tria-prices', JSON.stringify(prices));
     }
-
-    if (map['tria-meta']) {
-      const m = JSON.parse(map['tria-meta']);
+  } catch(_) {
+    prices = JSON.parse(JSON.stringify(PRELOADED_PRICES));
+  }
+  try {
+    const r = await window.storage.get('tria-meta');
+    if (r) {
+      const m = JSON.parse(r.value);
       lastUpdate = m.lastUpdate || PRELOADED_DATE;
       panicOn    = m.panicOn   || false;
     } else {
       lastUpdate = PRELOADED_DATE;
     }
+    refreshUpdateBadge();
+    if (panicOn) showPanic();
   } catch(_) {
-    prices = JSON.parse(JSON.stringify(PRELOADED_PRICES));
     lastUpdate = PRELOADED_DATE;
+    refreshUpdateBadge();
   }
-  refreshUpdateBadge();
-  if (panicOn) showPanic();
 }
 
 async function persist() {
+  await window.storage.set('tria-prices', JSON.stringify(prices));
   lastUpdate = new Date().toISOString();
-  try {
-    await sbFetch('config', 'POST', { key: 'tria-prices', value: JSON.stringify(prices) });
-  } catch(_) {
-    await sbFetch('config?key=eq.tria-prices', 'PATCH', { value: JSON.stringify(prices) });
-  }
-  try {
-    await sbFetch('config', 'POST', { key: 'tria-meta', value: JSON.stringify({ lastUpdate, panicOn }) });
-  } catch(_) {
-    await sbFetch('config?key=eq.tria-meta', 'PATCH', { value: JSON.stringify({ lastUpdate, panicOn }) });
-  }
+  await window.storage.set('tria-meta', JSON.stringify({ lastUpdate, panicOn }));
   refreshUpdateBadge();
 }
 
@@ -2053,9 +2004,7 @@ function exportCSV() {
 async function triggerPanic() {
   panicOn=true;
   showPanic();
-  try {
-    await sbFetch('config?key=eq.tria-meta', 'PATCH', { value: JSON.stringify({lastUpdate, panicOn:true}) });
-  } catch(_) {}
+  await window.storage.set('tria-meta', JSON.stringify({lastUpdate, panicOn:true}));
 }
 function showPanic() {
   document.getElementById('panic-overlay').classList.add('on');
@@ -2065,9 +2014,7 @@ function showPanic() {
 async function dismissPanic() {
   panicOn=false;
   document.getElementById('panic-overlay').classList.remove('on');
-  try {
-    await sbFetch('config?key=eq.tria-meta', 'PATCH', { value: JSON.stringify({lastUpdate, panicOn:false}) });
-  } catch(_) {}
+  await window.storage.set('tria-meta', JSON.stringify({lastUpdate, panicOn:false}));
   toast('✓ Mercado liberado');
 }
 
@@ -2556,6 +2503,150 @@ async function saveNewUser() {
   toast('✓ Usuário salvo');
 }
 
+async function renderUserList() {
+  const users = await loadUsers();
+  const el = document.getElementById('user-list');
+  if (!el) return;
+  const entries = Object.entries(users);
+  if (!entries.length) { el.textContent = 'Nenhum usuário cadastrado.'; return; }
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">E-MAIL</th>
+        <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">NOME</th>
+        <th style="text-align:left;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">PERFIL</th>
+        <th style="text-align:center;padding:6px 10px;color:var(--muted);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border)">AÇÃO</th>
+      </tr></thead>
+      <tbody>
+        ${entries.map(([email, u]) => `
+          <tr>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text)">${email}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text)">${u.name}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border)">
+              <span style="background:${u.role==='admin'?'rgba(96,165,250,.15)':'rgba(74,222,128,.1)'};
+                color:${u.role==='admin'?'var(--blue)':'var(--green)'};
+                border:1px solid ${u.role==='admin'?'rgba(96,165,250,.4)':'rgba(74,222,128,.3)'};
+                border-radius:4px;padding:2px 8px;font-size:10px">
+                ${u.role==='admin'?'Admin':'Comercial'}
+              </span>
+            </td>
+            <td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:center">
+              <button onclick="removeUser('${email}')"
+                style="background:transparent;border:1px solid var(--border);border-radius:5px;
+                  color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;
+                  padding:3px 10px;cursor:pointer"
+                onmouseover="this.style.borderColor='var(--panic)';this.style.color='var(--panic)'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+                remover
+              </button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function removeUser(email) {
+  if (email === currentUser?.email) { toast('⚠ Não pode remover o usuário logado'); return; }
+  if (!confirm(`Remover ${email}?`)) return;
+  const users = await loadUsers();
+  delete users[email];
+  await window.storage.set('tria-users', JSON.stringify(users));
+  await renderUserList();
+  toast('Usuário removido');
+}
+
+// ════════════════════════════════════
+// AUTH — LOGIN / LOGOUT
+// ════════════════════════════════════
+
+// Default users (email → PIN hash).
+// In production these would come from a secure backend.
+// PIN is stored as a simple 4-digit string in storage (not plaintext in code).
+// Admin can add users via storage key 'tria-users'.
+const DEFAULT_USERS = {
+  'admin@triaenergia.com.br': { pin: '1234', name: 'Admin', role: 'admin' },
+};
+
+async function loadUsers() {
+  try {
+    const r = await window.storage.get('tria-users');
+    if (r) return { ...DEFAULT_USERS, ...JSON.parse(r.value) };
+  } catch(_) {}
+  return DEFAULT_USERS;
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const pin   = document.getElementById('login-pin').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+
+  if (!email || !pin) { errEl.textContent = 'Preencha e-mail e PIN.'; return; }
+  if (pin.length !== 4) { errEl.textContent = 'PIN deve ter 4 dígitos.'; return; }
+
+  const users = await loadUsers();
+  const user  = users[email];
+
+  if (!user || user.pin !== pin) {
+    errEl.textContent = 'E-mail ou PIN incorretos.';
+    // Log failed attempt
+    await logAccess(email, 'login_failed');
+    return;
+  }
+
+  // Success
+  currentUser = { email, name: user.name, role: user.role };
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('user-badge').style.display = 'flex';
+  document.getElementById('user-name-badge').textContent = user.name;
+
+  // Show/hide admin tab based on role
+  const adminTab = document.querySelector('.nav-tab[onclick*="admin"]');
+  if (adminTab && user.role !== 'admin') adminTab.style.display = 'none';
+
+  await logAccess(email, 'login_ok', user.name);
+  toast(`Bem-vindo, ${user.name}`);
+}
+
+async function doLogout() {
+  if (!confirm('Sair do Tria Price?')) return;
+  await logAccess(currentUser?.email, 'logout', currentUser?.name);
+  currentUser = null;
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('user-badge').style.display = 'none';
+  document.getElementById('login-pin').value = '';
+  document.getElementById('login-error').textContent = '';
+}
+
+async function logAccess(email, event, name) {
+  try {
+    const r = await window.storage.get('tria-log');
+    const log = r ? JSON.parse(r.value) : [];
+    log.push({
+      ts: new Date().toISOString(),
+      email: email || '?',
+      name: name || '?',
+      event,
+      ua: navigator.userAgent.substring(0, 80)
+    });
+    // Keep last 500 entries
+    if (log.length > 500) log.splice(0, log.length - 500);
+    await window.storage.set('tria-log', JSON.stringify(log));
+  } catch(_) {}
+}
+
+// Admin: add/update user
+async function addUser(email, pin, name, role) {
+  const users = await loadUsers();
+  users[email.toLowerCase()] = { pin, name, role: role || 'user' };
+  await window.storage.set('tria-users', JSON.stringify(users));
+  return true;
+}
+
+// ════════════════════════════════════
+// INIT
+// ════════════════════════════════════
+
 // ════════════════════════════════════
 // AUTOCOMPLETE — CONTRAPARTES CCEE
 // ════════════════════════════════════
@@ -2616,6 +2707,16 @@ function showAdminTab(tab, btn) {
 
 (async()=>{
   await load();
+
+  // AUTO-LOGIN (sem autenticação por enquanto)
+  currentUser = { id: null, email: 'admin@triaenergia.com.br', name: 'Tria', role: 'admin' };
+  const ls = document.getElementById('login-screen');
+  if (ls) ls.style.display = 'none';
+  const ub = document.getElementById('user-badge');
+  if (ub) ub.style.display = 'flex';
+  const nb = document.getElementById('user-name-badge');
+  if (nb) nb.textContent = 'Tria Energia';
+
   // Start with 4 empty period rows
   for (let i=0;i<INIT_PERIODS;i++) periodRows.push({start:null,end:null,volumes:{}});
   renderSummary();
