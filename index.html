@@ -788,7 +788,7 @@
 <body>
 
 <!-- LOGIN SCREEN -->
-<div id="login-screen" style="display:none">
+<div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
       <img src="https://triaenergia.com.br/wp-content/uploads/elementor/thumbs/logo-tria-rix8mlin33srrqa4j3bmavnrrxln8tmayqyupd85eo.png"
@@ -867,7 +867,7 @@
     <span id="user-name-badge">—</span>
     <span style="opacity:.5;margin-left:4px">sair</span>
   </div>
-  <button id="panic-btn" onclick="triggerPanic()">⚡ Pânico</button>
+  <button id="panic-btn" onclick="triggerPanic()" style="display:none">⚡ Pânico</button>
 </header>
 
 <!-- MAIN -->
@@ -892,9 +892,11 @@
 
       <!-- Linha 1: Contraparte + Comentários -->
       <div class="card-row">
-        <div class="field" style="flex:1;min-width:220px">
+        <div class="field" style="flex:1;min-width:220px;position:relative">
           <label>Contraparte</label>
-          <input type="text" id="contraparte" placeholder="Nome da empresa..." />
+          <input type="text" id="contraparte" placeholder="Digite 2 letras para buscar..." autocomplete="off"
+            oninput="searchContraparte(this.value)" onblur="setTimeout(()=>document.getElementById('ac-list').style.display='none',200)"/>
+          <div id="ac-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
         </div>
         <div class="field" style="min-width:160px;max-width:200px">
           <label>CNPJ</label>
@@ -939,8 +941,20 @@
         <div class="field">
           <label>Tipo de Proposta</label>
           <div class="pills" id="g-tipo">
-            <div class="pill" onclick="pick('tipo','firme',this,'p-firm')">Firme</div>
-            <div class="pill" onclick="pick('tipo','indicativa',this,'p-indic')">Indicativa</div>
+            <div class="pill" onclick="pick('tipo','firme',this,'p-firm');toggleFirmeFields(true)">Firme</div>
+            <div class="pill active p-indic" onclick="pick('tipo','indicativa',this,'p-indic');toggleFirmeFields(false)">Indicativa</div>
+          </div>
+          <div id="firme-fields" style="display:none;margin-top:10px;display:none">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <div class="field" style="margin:0">
+                <label style="font-size:10px">Data Validade (GMT-3)</label>
+                <input type="date" id="firme-data" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px">
+              </div>
+              <div class="field" style="margin:0">
+                <label style="font-size:10px">Horário</label>
+                <input type="time" id="firme-hora" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px">
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -961,6 +975,18 @@
               id="flexPct" oninput="params.flexPct=this.value;calcPremium()">
             <span class="params-sep">%</span>
           </div>
+          <select id="flex-tipo" onchange="params.flexTipo=this.value;calcPremium()"
+            style="margin-top:6px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;color:var(--text);font-size:11px;width:100%">
+            <option value="conforme_consumo">Conforme consumo</option>
+            <option value="conforme_geracao">Conforme geração</option>
+            <option value="curva_definida">Curva definida</option>
+            <option value="percentual_consumo">Percentual do consumo</option>
+          </select>
+          <div id="flex-pct-wrap" style="display:none;margin-top:6px;align-items:center;gap:6px">
+            <input class="params-input" type="number" min="0" max="100" placeholder="%" id="flexConsumoPct"
+              oninput="params.flexConsumoPct=this.value" style="width:70px">
+            <span class="params-sep">%</span>
+          </div>
         </div>
 
         <!-- Sazo -->
@@ -971,10 +997,20 @@
               id="sazoPct" oninput="params.sazoPct=this.value;calcPremium()">
             <span class="params-sep">%</span>
           </div>
+          <div style="margin-top:6px">
+            <label style="font-size:10px;color:var(--muted)">Data de informe</label>
+            <input type="date" id="sazo-data"
+              style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:5px 8px;color:var(--text);font-size:11px;width:100%">
+          </div>
         </div>
 
-        <!-- Cenário de volatilidade -->
-        <div class="params-group">
+        <!-- Cenário de volatilidade — definido pelo Admin -->
+        <div class="params-group" id="vol-display">
+          <label>Cenário de Vol.</label>
+          <div id="vol-label" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--blue);padding:6px 0">C3 — 106%</div>
+        </div>
+        <!-- Seleção de vol só aparece no Admin -->
+        <div class="params-group" id="vol-admin-select" style="display:none">
           <label>Cenário de Vol.</label>
           <div class="pills" id="g-vol" style="gap:6px">
             <div class="pill p-vol" onclick="pickVol(0.30,this)" title="30% — muito otimista">C1 30%</div>
@@ -1003,7 +1039,13 @@
       </div>
 
       <!-- Períodos -->
-      <div class="section-title">Períodos de Fornecimento</div>
+      <div class="section-title" style="display:flex;align-items:center;gap:12px">
+        Períodos de Fornecimento
+        <div style="display:flex;gap:6px;margin-left:8px">
+          <button id="btn-flat" onclick="setVolumeMode('flat')" style="font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:var(--green2);color:#000;cursor:pointer;font-family:'DM Mono',monospace">Flat</button>
+          <button id="btn-escalonado" onclick="setVolumeMode('escalonado')" style="font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;font-family:'DM Mono',monospace">Escalonado</button>
+        </div>
+      </div>
       <div class="periods-wrap" id="periods-wrap"></div>
       <button class="add-period-btn" id="add-period-btn" onclick="addPeriod()">
         + Adicionar período
@@ -1014,6 +1056,57 @@
       <!-- Resultados -->
       <div class="section-title">Preço Calculado — R$/MWh (média ponderada por horas)</div>
       <div class="results-grid" id="results-grid"></div>
+
+      <hr class="sep">
+
+      <!-- Data de Pagamento -->
+      <div class="section-title" style="margin-bottom:10px">Data de Pagamento</div>
+      <div class="card-row" style="align-items:flex-start;gap:16px;flex-wrap:wrap">
+        <div class="field">
+          <label>Tipo</label>
+          <div class="pills" id="g-pgto">
+            <div class="pill active" id="pgto-util" onclick="setPgtoTipo('util',this)">Dia Útil</div>
+            <div class="pill" id="pgto-corrido" onclick="setPgtoTipo('corrido',this)">Dia Corrido</div>
+          </div>
+        </div>
+        <div class="field">
+          <label id="pgto-label">6º Dia Útil</label>
+          <input type="number" id="pgto-dia" value="6" min="1" max="31"
+            style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:7px 12px;color:var(--text);font-size:13px;width:80px"
+            oninput="updatePgtoLabel()">
+        </div>
+      </div>
+
+      <hr class="sep">
+
+      <!-- Garantias -->
+      <div class="section-title" style="margin-bottom:10px">Garantias</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="gar-rcp" style="accent-color:var(--green2)">
+          <span style="font-size:13px">Registro contra pagamento</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="gar-seguro" onchange="toggleGarField('gar-seguro-x',this.checked)" style="accent-color:var(--green2)">
+          <span style="font-size:13px">Seguro garantia referente a</span>
+          <input type="number" id="gar-seguro-x" min="1" max="24" placeholder="x" disabled
+            style="width:50px;background:var(--bg3);border:1px solid var(--border2);border-radius:5px;padding:4px 8px;color:var(--text);font-size:12px">
+          <span style="font-size:13px">meses de faturamento</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="gar-financeira" onchange="toggleGarField('gar-financeira-x',this.checked)" style="accent-color:var(--green2)">
+          <span style="font-size:13px">Garantia financeira referente a</span>
+          <input type="number" id="gar-financeira-x" min="1" max="24" placeholder="x" disabled
+            style="width:50px;background:var(--bg3);border:1px solid var(--border2);border-radius:5px;padding:4px 8px;color:var(--text);font-size:12px">
+          <span style="font-size:13px">meses de faturamento</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="gar-outra" onchange="toggleGarField('gar-outra-texto',this.checked)" style="accent-color:var(--green2)">
+          <span style="font-size:13px">Outra modalidade:</span>
+          <input type="text" id="gar-outra-texto" placeholder="Descreva..." disabled
+            style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:5px;padding:4px 8px;color:var(--text);font-size:12px">
+        </label>
+      </div>
 
       <div style="display:flex;justify-content:flex-end;margin-top:16px;gap:10px;">
         <button class="btn-export" onclick="exportDocx()">
@@ -1413,7 +1506,7 @@ async function renderProposalsLog() {
           '<td style="padding:4px 8px;border-bottom:1px solid var(--border)">' + (p.contraparte||'—') + '</td>' +
           '<td style="padding:4px 8px;border-bottom:1px solid var(--border)">' + (p.submercado||'—') + '</td>' +
           '<td style="padding:4px 8px;border-bottom:1px solid var(--border)">' + (p.fonte||'—') + '</td>' +
-          '<td style="padding:4px 8px;border-bottom:1px solid var(--border);font-family:monospace;color:var(--green)">' + (p.preco_medio ? 'R$ '+parseFloat(p.preco_medio).toFixed(2) : '—') + '</td>' +
+          '<td style="padding:4px 8px;border-bottom:1px solid var(--border);font-family:monospace;color:var(--green)">' + (p.preco_medio ? 'R$ '+parseFloat(p.preco_medio) : '—') + '</td>' +
         '</tr>';
       }).join('') +
       '</tbody></table>';
@@ -1576,8 +1669,8 @@ const CP_SPREADS = {
   'NE':    { Conv: null, I5: null, I0: null, I1: null, CQ5: null },
   'N':     { Conv: null, I5: null, I0: null, I1: null, CQ5: null }
 };
-const PRELOADED_PRICES = {"SE/CO":{"Conv":{"2026-05":{"buy":250,"sell":260},"2026-06":{"buy":235,"sell":250},"2026-07":{"buy":240,"sell":260},"2026-08":{"buy":260,"sell":295},"2026-09":{"buy":290,"sell":305},"2026-10":{"buy":310,"sell":335},"2026-11":{"buy":310,"sell":335},"2026-12":{"buy":310,"sell":335},"2027-01":{"buy":272,"sell":285},"2027-02":{"buy":272,"sell":285},"2027-03":{"buy":272,"sell":285},"2027-04":{"buy":272,"sell":285},"2027-05":{"buy":272,"sell":285},"2027-06":{"buy":272,"sell":285},"2027-07":{"buy":272,"sell":285},"2027-08":{"buy":272,"sell":285},"2027-09":{"buy":272,"sell":285},"2027-10":{"buy":272,"sell":285},"2027-11":{"buy":272,"sell":285},"2027-12":{"buy":272,"sell":285},"2028-01":{"buy":240,"sell":260},"2028-02":{"buy":240,"sell":260},"2028-03":{"buy":240,"sell":260},"2028-04":{"buy":240,"sell":260},"2028-05":{"buy":240,"sell":260},"2028-06":{"buy":240,"sell":260},"2028-07":{"buy":240,"sell":260},"2028-08":{"buy":240,"sell":260},"2028-09":{"buy":240,"sell":260},"2028-10":{"buy":240,"sell":260},"2028-11":{"buy":240,"sell":260},"2028-12":{"buy":240,"sell":260},"2029":{"buy":220,"sell":235},"2030":{"buy":175,"sell":210},"2031":{"buy":150,"sell":185},"2032":{"buy":140,"sell":170},"2033":{"buy":137,"sell":165},"2034":{"buy":137,"sell":165},"2035":{"buy":133,"sell":165},"2036":{"buy":129,"sell":162},"2037":{"buy":128,"sell":158.41},"2038":{"buy":127,"sell":158.41},"2039":{"buy":127,"sell":158.41},"2040":{"buy":127,"sell":158.41},"2026-04":{"buy":211.38,"sell":211.38}},"I0":{"2026-05":{"buy":251,"sell":263},"2026-06":{"buy":236,"sell":253},"2026-07":{"buy":241,"sell":263},"2026-08":{"buy":261,"sell":298},"2026-09":{"buy":291,"sell":308},"2026-10":{"buy":311,"sell":338},"2026-11":{"buy":311,"sell":338},"2026-12":{"buy":311,"sell":338},"2027-01":{"buy":273,"sell":287},"2027-02":{"buy":273,"sell":287},"2027-03":{"buy":273,"sell":287},"2027-04":{"buy":273,"sell":287},"2027-05":{"buy":273,"sell":287},"2027-06":{"buy":273,"sell":287},"2027-07":{"buy":273,"sell":287},"2027-08":{"buy":273,"sell":287},"2027-09":{"buy":273,"sell":287},"2027-10":{"buy":273,"sell":287},"2027-11":{"buy":273,"sell":287},"2027-12":{"buy":273,"sell":287},"2028-01":{"buy":241,"sell":262},"2028-02":{"buy":241,"sell":262},"2028-03":{"buy":241,"sell":262},"2028-04":{"buy":241,"sell":262},"2028-05":{"buy":241,"sell":262},"2028-06":{"buy":241,"sell":262},"2028-07":{"buy":241,"sell":262},"2028-08":{"buy":241,"sell":262},"2028-09":{"buy":241,"sell":262},"2028-10":{"buy":241,"sell":262},"2028-11":{"buy":241,"sell":262},"2028-12":{"buy":241,"sell":262},"2029":{"buy":221,"sell":237},"2030":{"buy":176,"sell":212},"2031":{"buy":151,"sell":187},"2032":{"buy":141,"sell":172},"2033":{"buy":138,"sell":167},"2034":{"buy":138,"sell":167},"2035":{"buy":134,"sell":167},"2036":{"buy":130,"sell":164},"2037":{"buy":129,"sell":160.41},"2038":{"buy":128,"sell":160.41},"2039":{"buy":128,"sell":160.41},"2040":{"buy":128,"sell":160.41},"2026-04":{"buy":212.38,"sell":213.38}},"I5":{"2026-05":{"buy":274,"sell":290},"2026-06":{"buy":259,"sell":280},"2026-07":{"buy":264,"sell":290},"2026-08":{"buy":284,"sell":325},"2026-09":{"buy":314,"sell":335},"2026-10":{"buy":334,"sell":365},"2026-11":{"buy":334,"sell":365},"2026-12":{"buy":334,"sell":365},"2027-01":{"buy":297,"sell":318},"2027-02":{"buy":297,"sell":318},"2027-03":{"buy":297,"sell":318},"2027-04":{"buy":297,"sell":318},"2027-05":{"buy":297,"sell":318},"2027-06":{"buy":297,"sell":318},"2027-07":{"buy":297,"sell":318},"2027-08":{"buy":297,"sell":318},"2027-09":{"buy":297,"sell":318},"2027-10":{"buy":297,"sell":318},"2027-11":{"buy":297,"sell":318},"2027-12":{"buy":297,"sell":318},"2028-01":{"buy":265,"sell":292},"2028-02":{"buy":265,"sell":292},"2028-03":{"buy":265,"sell":292},"2028-04":{"buy":265,"sell":292},"2028-05":{"buy":265,"sell":292},"2028-06":{"buy":265,"sell":292},"2028-07":{"buy":265,"sell":292},"2028-08":{"buy":265,"sell":292},"2028-09":{"buy":265,"sell":292},"2028-10":{"buy":265,"sell":292},"2028-11":{"buy":265,"sell":292},"2028-12":{"buy":265,"sell":292},"2029":{"buy":245,"sell":265},"2030":{"buy":200,"sell":240},"2031":{"buy":173,"sell":215},"2032":{"buy":162,"sell":200},"2033":{"buy":157,"sell":195},"2034":{"buy":157,"sell":195},"2035":{"buy":153,"sell":195},"2036":{"buy":149,"sell":192},"2037":{"buy":148,"sell":188.41},"2038":{"buy":147,"sell":188.41},"2039":{"buy":147,"sell":188.41},"2040":{"buy":147,"sell":188.41},"2026-04":{"buy":235.38,"sell":241.38}},"I1":{"2026-05":{"buy":420,"sell":460},"2026-06":{"buy":405,"sell":450},"2026-07":{"buy":410,"sell":460},"2026-08":{"buy":430,"sell":495},"2026-09":{"buy":460,"sell":505},"2026-10":{"buy":480,"sell":535},"2026-11":{"buy":480,"sell":535},"2026-12":{"buy":480,"sell":535},"2027-01":{"buy":442,"sell":485},"2027-02":{"buy":442,"sell":485},"2027-03":{"buy":442,"sell":485},"2027-04":{"buy":442,"sell":485},"2027-05":{"buy":442,"sell":485},"2027-06":{"buy":442,"sell":485},"2027-07":{"buy":442,"sell":485},"2027-08":{"buy":442,"sell":485},"2027-09":{"buy":442,"sell":485},"2027-10":{"buy":442,"sell":485},"2027-11":{"buy":442,"sell":485},"2027-12":{"buy":442,"sell":485},"2028-01":{"buy":410,"sell":460},"2028-02":{"buy":410,"sell":460},"2028-03":{"buy":410,"sell":460},"2028-04":{"buy":410,"sell":460},"2028-05":{"buy":410,"sell":460},"2028-06":{"buy":410,"sell":460},"2028-07":{"buy":410,"sell":460},"2028-08":{"buy":410,"sell":460},"2028-09":{"buy":410,"sell":460},"2028-10":{"buy":410,"sell":460},"2028-11":{"buy":410,"sell":460},"2028-12":{"buy":410,"sell":460},"2029":{"buy":390,"sell":435},"2030":{"buy":345,"sell":410},"2031":{"buy":320,"sell":385},"2032":{"buy":310,"sell":370},"2033":{"buy":307,"sell":365},"2034":{"buy":307,"sell":365},"2035":{"buy":303,"sell":365},"2036":{"buy":299,"sell":362},"2037":{"buy":298,"sell":358.41},"2038":{"buy":297,"sell":358.41},"2039":{"buy":297,"sell":358.41},"2040":{"buy":297,"sell":358.41},"2026-04":{"buy":381.38,"sell":411.38}}},"S":{"Conv":{"2026-05":{"buy":245,"sell":300},"2026-06":{"buy":230,"sell":260},"2026-07":{"buy":240,"sell":260},"2026-08":{"buy":260,"sell":295},"2026-09":{"buy":290,"sell":305},"2026-10":{"buy":310,"sell":335},"2026-11":{"buy":310,"sell":335},"2026-12":{"buy":310,"sell":335},"2027-01":{"buy":272,"sell":285},"2027-02":{"buy":272,"sell":285},"2027-03":{"buy":272,"sell":285},"2027-04":{"buy":272,"sell":285},"2027-05":{"buy":272,"sell":285},"2027-06":{"buy":272,"sell":285},"2027-07":{"buy":272,"sell":285},"2027-08":{"buy":272,"sell":285},"2027-09":{"buy":272,"sell":285},"2027-10":{"buy":272,"sell":285},"2027-11":{"buy":272,"sell":285},"2027-12":{"buy":272,"sell":285},"2028-01":{"buy":240,"sell":260},"2028-02":{"buy":240,"sell":260},"2028-03":{"buy":240,"sell":260},"2028-04":{"buy":240,"sell":260},"2028-05":{"buy":240,"sell":260},"2028-06":{"buy":240,"sell":260},"2028-07":{"buy":240,"sell":260},"2028-08":{"buy":240,"sell":260},"2028-09":{"buy":240,"sell":260},"2028-10":{"buy":240,"sell":260},"2028-11":{"buy":240,"sell":260},"2028-12":{"buy":240,"sell":260},"2029":{"buy":220,"sell":235},"2030":{"buy":175,"sell":210},"2031":{"buy":150,"sell":185},"2032":{"buy":140,"sell":170},"2033":{"buy":137,"sell":165},"2034":{"buy":137,"sell":165},"2035":{"buy":133,"sell":165},"2036":{"buy":129,"sell":162},"2037":{"buy":128,"sell":158.41},"2038":{"buy":127,"sell":158.41},"2039":{"buy":127,"sell":158.41},"2040":{"buy":127,"sell":158.41},"2026-04":{"buy":254.03,"sell":254.03}},"I0":{"2026-05":{"buy":246,"sell":303},"2026-06":{"buy":231,"sell":263},"2026-07":{"buy":241,"sell":263},"2026-08":{"buy":261,"sell":298},"2026-09":{"buy":291,"sell":308},"2026-10":{"buy":311,"sell":338},"2026-11":{"buy":311,"sell":338},"2026-12":{"buy":311,"sell":338},"2027-01":{"buy":273,"sell":287},"2027-02":{"buy":273,"sell":287},"2027-03":{"buy":273,"sell":287},"2027-04":{"buy":273,"sell":287},"2027-05":{"buy":273,"sell":287},"2027-06":{"buy":273,"sell":287},"2027-07":{"buy":273,"sell":287},"2027-08":{"buy":273,"sell":287},"2027-09":{"buy":273,"sell":287},"2027-10":{"buy":273,"sell":287},"2027-11":{"buy":273,"sell":287},"2027-12":{"buy":273,"sell":287},"2028-01":{"buy":241,"sell":262},"2028-02":{"buy":241,"sell":262},"2028-03":{"buy":241,"sell":262},"2028-04":{"buy":241,"sell":262},"2028-05":{"buy":241,"sell":262},"2028-06":{"buy":241,"sell":262},"2028-07":{"buy":241,"sell":262},"2028-08":{"buy":241,"sell":262},"2028-09":{"buy":241,"sell":262},"2028-10":{"buy":241,"sell":262},"2028-11":{"buy":241,"sell":262},"2028-12":{"buy":241,"sell":262},"2029":{"buy":221,"sell":237},"2030":{"buy":176,"sell":212},"2031":{"buy":151,"sell":187},"2032":{"buy":141,"sell":172},"2033":{"buy":138,"sell":167},"2034":{"buy":138,"sell":167},"2035":{"buy":134,"sell":167},"2036":{"buy":130,"sell":164},"2037":{"buy":129,"sell":160.41},"2038":{"buy":128,"sell":160.41},"2039":{"buy":128,"sell":160.41},"2040":{"buy":128,"sell":160.41},"2026-04":{"buy":255.03,"sell":256.03}},"I5":{"2026-05":{"buy":269,"sell":330},"2026-06":{"buy":254,"sell":290},"2026-07":{"buy":264,"sell":290},"2026-08":{"buy":284,"sell":325},"2026-09":{"buy":314,"sell":335},"2026-10":{"buy":334,"sell":365},"2026-11":{"buy":334,"sell":365},"2026-12":{"buy":334,"sell":365},"2027-01":{"buy":297,"sell":318},"2027-02":{"buy":297,"sell":318},"2027-03":{"buy":297,"sell":318},"2027-04":{"buy":297,"sell":318},"2027-05":{"buy":297,"sell":318},"2027-06":{"buy":297,"sell":318},"2027-07":{"buy":297,"sell":318},"2027-08":{"buy":297,"sell":318},"2027-09":{"buy":297,"sell":318},"2027-10":{"buy":297,"sell":318},"2027-11":{"buy":297,"sell":318},"2027-12":{"buy":297,"sell":318},"2028-01":{"buy":265,"sell":292},"2028-02":{"buy":265,"sell":292},"2028-03":{"buy":265,"sell":292},"2028-04":{"buy":265,"sell":292},"2028-05":{"buy":265,"sell":292},"2028-06":{"buy":265,"sell":292},"2028-07":{"buy":265,"sell":292},"2028-08":{"buy":265,"sell":292},"2028-09":{"buy":265,"sell":292},"2028-10":{"buy":265,"sell":292},"2028-11":{"buy":265,"sell":292},"2028-12":{"buy":265,"sell":292},"2029":{"buy":245,"sell":265},"2030":{"buy":200,"sell":240},"2031":{"buy":173,"sell":215},"2032":{"buy":162,"sell":200},"2033":{"buy":157,"sell":195},"2034":{"buy":157,"sell":195},"2035":{"buy":153,"sell":195},"2036":{"buy":149,"sell":192},"2037":{"buy":148,"sell":188.41},"2038":{"buy":147,"sell":188.41},"2039":{"buy":147,"sell":188.41},"2040":{"buy":147,"sell":188.41},"2026-04":{"buy":278.03,"sell":284.03}},"I1":{"2026-05":{"buy":415,"sell":500},"2026-06":{"buy":400,"sell":460},"2026-07":{"buy":410,"sell":460},"2026-08":{"buy":430,"sell":495},"2026-09":{"buy":460,"sell":505},"2026-10":{"buy":480,"sell":535},"2026-11":{"buy":480,"sell":535},"2026-12":{"buy":480,"sell":535},"2027-01":{"buy":442,"sell":485},"2027-02":{"buy":442,"sell":485},"2027-03":{"buy":442,"sell":485},"2027-04":{"buy":442,"sell":485},"2027-05":{"buy":442,"sell":485},"2027-06":{"buy":442,"sell":485},"2027-07":{"buy":442,"sell":485},"2027-08":{"buy":442,"sell":485},"2027-09":{"buy":442,"sell":485},"2027-10":{"buy":442,"sell":485},"2027-11":{"buy":442,"sell":485},"2027-12":{"buy":442,"sell":485},"2028-01":{"buy":410,"sell":460},"2028-02":{"buy":410,"sell":460},"2028-03":{"buy":410,"sell":460},"2028-04":{"buy":410,"sell":460},"2028-05":{"buy":410,"sell":460},"2028-06":{"buy":410,"sell":460},"2028-07":{"buy":410,"sell":460},"2028-08":{"buy":410,"sell":460},"2028-09":{"buy":410,"sell":460},"2028-10":{"buy":410,"sell":460},"2028-11":{"buy":410,"sell":460},"2028-12":{"buy":410,"sell":460},"2029":{"buy":390,"sell":435},"2030":{"buy":345,"sell":410},"2031":{"buy":320,"sell":385},"2032":{"buy":310,"sell":370},"2033":{"buy":307,"sell":365},"2034":{"buy":307,"sell":365},"2035":{"buy":303,"sell":365},"2036":{"buy":299,"sell":362},"2037":{"buy":298,"sell":358.41},"2038":{"buy":297,"sell":358.41},"2039":{"buy":297,"sell":358.41},"2040":{"buy":297,"sell":358.41},"2026-04":{"buy":424.03,"sell":454.03}}},"NE":{"Conv":{"2026-05":{"buy":50,"sell":210},"2026-06":{"buy":85,"sell":200},"2026-07":{"buy":190,"sell":260},"2026-08":{"buy":210,"sell":295},"2026-09":{"buy":240,"sell":305},"2026-10":{"buy":270,"sell":335},"2026-11":{"buy":270,"sell":335},"2026-12":{"buy":270,"sell":335},"2027-01":{"buy":212,"sell":260},"2027-02":{"buy":212,"sell":260},"2027-03":{"buy":212,"sell":260},"2027-04":{"buy":212,"sell":260},"2027-05":{"buy":212,"sell":260},"2027-06":{"buy":212,"sell":260},"2027-07":{"buy":212,"sell":260},"2027-08":{"buy":212,"sell":260},"2027-09":{"buy":212,"sell":260},"2027-10":{"buy":212,"sell":260},"2027-11":{"buy":212,"sell":260},"2027-12":{"buy":212,"sell":260},"2028-01":{"buy":190,"sell":245},"2028-02":{"buy":190,"sell":245},"2028-03":{"buy":190,"sell":245},"2028-04":{"buy":190,"sell":245},"2028-05":{"buy":190,"sell":245},"2028-06":{"buy":190,"sell":245},"2028-07":{"buy":190,"sell":245},"2028-08":{"buy":190,"sell":245},"2028-09":{"buy":190,"sell":245},"2028-10":{"buy":190,"sell":245},"2028-11":{"buy":190,"sell":245},"2028-12":{"buy":190,"sell":245},"2029":{"buy":180,"sell":225},"2030":{"buy":145,"sell":205},"2031":{"buy":125,"sell":183},"2032":{"buy":115,"sell":168},"2033":{"buy":129,"sell":163},"2034":{"buy":129,"sell":163},"2035":{"buy":125,"sell":163},"2036":{"buy":121,"sell":160},"2037":{"buy":125,"sell":156.41},"2038":{"buy":124,"sell":156.41},"2039":{"buy":124,"sell":156.41},"2040":{"buy":124,"sell":156.41},"2026-04":{"buy":139.28,"sell":139.28}},"I0":{"2026-05":{"buy":51,"sell":213},"2026-06":{"buy":86,"sell":203},"2026-07":{"buy":191,"sell":263},"2026-08":{"buy":211,"sell":298},"2026-09":{"buy":241,"sell":308},"2026-10":{"buy":271,"sell":338},"2026-11":{"buy":271,"sell":338},"2026-12":{"buy":271,"sell":338},"2027-01":{"buy":213,"sell":262},"2027-02":{"buy":213,"sell":262},"2027-03":{"buy":213,"sell":262},"2027-04":{"buy":213,"sell":262},"2027-05":{"buy":213,"sell":262},"2027-06":{"buy":213,"sell":262},"2027-07":{"buy":213,"sell":262},"2027-08":{"buy":213,"sell":262},"2027-09":{"buy":213,"sell":262},"2027-10":{"buy":213,"sell":262},"2027-11":{"buy":213,"sell":262},"2027-12":{"buy":213,"sell":262},"2028-01":{"buy":191,"sell":247},"2028-02":{"buy":191,"sell":247},"2028-03":{"buy":191,"sell":247},"2028-04":{"buy":191,"sell":247},"2028-05":{"buy":191,"sell":247},"2028-06":{"buy":191,"sell":247},"2028-07":{"buy":191,"sell":247},"2028-08":{"buy":191,"sell":247},"2028-09":{"buy":191,"sell":247},"2028-10":{"buy":191,"sell":247},"2028-11":{"buy":191,"sell":247},"2028-12":{"buy":191,"sell":247},"2029":{"buy":181,"sell":227},"2030":{"buy":146,"sell":207},"2031":{"buy":126,"sell":185},"2032":{"buy":116,"sell":170},"2033":{"buy":130,"sell":165},"2034":{"buy":130,"sell":165},"2035":{"buy":126,"sell":165},"2036":{"buy":122,"sell":162},"2037":{"buy":126,"sell":158.41},"2038":{"buy":125,"sell":158.41},"2039":{"buy":125,"sell":158.41},"2040":{"buy":125,"sell":158.41},"2026-04":{"buy":140.28,"sell":141.28}},"I5":{"2026-05":{"buy":74,"sell":240},"2026-06":{"buy":109,"sell":230},"2026-07":{"buy":214,"sell":290},"2026-08":{"buy":234,"sell":325},"2026-09":{"buy":264,"sell":335},"2026-10":{"buy":294,"sell":365},"2026-11":{"buy":294,"sell":365},"2026-12":{"buy":294,"sell":365},"2027-01":{"buy":237,"sell":293},"2027-02":{"buy":237,"sell":293},"2027-03":{"buy":237,"sell":293},"2027-04":{"buy":237,"sell":293},"2027-05":{"buy":237,"sell":293},"2027-06":{"buy":237,"sell":293},"2027-07":{"buy":237,"sell":293},"2027-08":{"buy":237,"sell":293},"2027-09":{"buy":237,"sell":293},"2027-10":{"buy":237,"sell":293},"2027-11":{"buy":237,"sell":293},"2027-12":{"buy":237,"sell":293},"2028-01":{"buy":215,"sell":277},"2028-02":{"buy":215,"sell":277},"2028-03":{"buy":215,"sell":277},"2028-04":{"buy":215,"sell":277},"2028-05":{"buy":215,"sell":277},"2028-06":{"buy":215,"sell":277},"2028-07":{"buy":215,"sell":277},"2028-08":{"buy":215,"sell":277},"2028-09":{"buy":215,"sell":277},"2028-10":{"buy":215,"sell":277},"2028-11":{"buy":215,"sell":277},"2028-12":{"buy":215,"sell":277},"2029":{"buy":205,"sell":255},"2030":{"buy":170,"sell":235},"2031":{"buy":148,"sell":213},"2032":{"buy":137,"sell":198},"2033":{"buy":149,"sell":193},"2034":{"buy":149,"sell":193},"2035":{"buy":145,"sell":193},"2036":{"buy":141,"sell":190},"2037":{"buy":145,"sell":186.41},"2038":{"buy":144,"sell":186.41},"2039":{"buy":144,"sell":186.41},"2040":{"buy":144,"sell":186.41},"2026-04":{"buy":163.28,"sell":169.28}},"I1":{"2026-05":{"buy":220,"sell":410},"2026-06":{"buy":255,"sell":400},"2026-07":{"buy":360,"sell":460},"2026-08":{"buy":380,"sell":495},"2026-09":{"buy":410,"sell":505},"2026-10":{"buy":440,"sell":535},"2026-11":{"buy":440,"sell":535},"2026-12":{"buy":440,"sell":535},"2027-01":{"buy":382,"sell":460},"2027-02":{"buy":382,"sell":460},"2027-03":{"buy":382,"sell":460},"2027-04":{"buy":382,"sell":460},"2027-05":{"buy":382,"sell":460},"2027-06":{"buy":382,"sell":460},"2027-07":{"buy":382,"sell":460},"2027-08":{"buy":382,"sell":460},"2027-09":{"buy":382,"sell":460},"2027-10":{"buy":382,"sell":460},"2027-11":{"buy":382,"sell":460},"2027-12":{"buy":382,"sell":460},"2028-01":{"buy":360,"sell":445},"2028-02":{"buy":360,"sell":445},"2028-03":{"buy":360,"sell":445},"2028-04":{"buy":360,"sell":445},"2028-05":{"buy":360,"sell":445},"2028-06":{"buy":360,"sell":445},"2028-07":{"buy":360,"sell":445},"2028-08":{"buy":360,"sell":445},"2028-09":{"buy":360,"sell":445},"2028-10":{"buy":360,"sell":445},"2028-11":{"buy":360,"sell":445},"2028-12":{"buy":360,"sell":445},"2029":{"buy":350,"sell":425},"2030":{"buy":315,"sell":405},"2031":{"buy":295,"sell":383},"2032":{"buy":285,"sell":368},"2033":{"buy":299,"sell":363},"2034":{"buy":299,"sell":363},"2035":{"buy":295,"sell":363},"2036":{"buy":291,"sell":360},"2037":{"buy":295,"sell":356.41},"2038":{"buy":294,"sell":356.41},"2039":{"buy":294,"sell":356.41},"2040":{"buy":294,"sell":356.41},"2026-04":{"buy":309.28,"sell":339.28}}},"N":{"Conv":{"2026-05":{"buy":50,"sell":210},"2026-06":{"buy":85,"sell":200},"2026-07":{"buy":190,"sell":210},"2026-08":{"buy":210,"sell":245},"2026-09":{"buy":240,"sell":255},"2026-10":{"buy":270,"sell":285},"2026-11":{"buy":270,"sell":285},"2026-12":{"buy":270,"sell":285},"2027-01":{"buy":212,"sell":275},"2027-02":{"buy":212,"sell":275},"2027-03":{"buy":212,"sell":275},"2027-04":{"buy":212,"sell":275},"2027-05":{"buy":212,"sell":275},"2027-06":{"buy":212,"sell":275},"2027-07":{"buy":212,"sell":275},"2027-08":{"buy":212,"sell":275},"2027-09":{"buy":212,"sell":275},"2027-10":{"buy":212,"sell":275},"2027-11":{"buy":212,"sell":275},"2027-12":{"buy":212,"sell":275},"2028-01":{"buy":190,"sell":255},"2028-02":{"buy":190,"sell":255},"2028-03":{"buy":190,"sell":255},"2028-04":{"buy":190,"sell":255},"2028-05":{"buy":190,"sell":255},"2028-06":{"buy":190,"sell":255},"2028-07":{"buy":190,"sell":255},"2028-08":{"buy":190,"sell":255},"2028-09":{"buy":190,"sell":255},"2028-10":{"buy":190,"sell":255},"2028-11":{"buy":190,"sell":255},"2028-12":{"buy":190,"sell":255},"2029":{"buy":180,"sell":230},"2030":{"buy":145,"sell":205},"2031":{"buy":125,"sell":183},"2032":{"buy":115,"sell":168},"2033":{"buy":129,"sell":163},"2034":{"buy":129,"sell":163},"2035":{"buy":125,"sell":163},"2036":{"buy":121,"sell":160},"2037":{"buy":125,"sell":156.41},"2038":{"buy":124,"sell":156.41},"2039":{"buy":124,"sell":156.41},"2040":{"buy":124,"sell":156.41},"2026-04":{"buy":138.58,"sell":138.58}},"I0":{"2026-05":{"buy":51,"sell":213},"2026-06":{"buy":86,"sell":203},"2026-07":{"buy":191,"sell":213},"2026-08":{"buy":211,"sell":248},"2026-09":{"buy":241,"sell":258},"2026-10":{"buy":271,"sell":288},"2026-11":{"buy":271,"sell":288},"2026-12":{"buy":271,"sell":288},"2027-01":{"buy":213,"sell":277},"2027-02":{"buy":213,"sell":277},"2027-03":{"buy":213,"sell":277},"2027-04":{"buy":213,"sell":277},"2027-05":{"buy":213,"sell":277},"2027-06":{"buy":213,"sell":277},"2027-07":{"buy":213,"sell":277},"2027-08":{"buy":213,"sell":277},"2027-09":{"buy":213,"sell":277},"2027-10":{"buy":213,"sell":277},"2027-11":{"buy":213,"sell":277},"2027-12":{"buy":213,"sell":277},"2028-01":{"buy":191,"sell":257},"2028-02":{"buy":191,"sell":257},"2028-03":{"buy":191,"sell":257},"2028-04":{"buy":191,"sell":257},"2028-05":{"buy":191,"sell":257},"2028-06":{"buy":191,"sell":257},"2028-07":{"buy":191,"sell":257},"2028-08":{"buy":191,"sell":257},"2028-09":{"buy":191,"sell":257},"2028-10":{"buy":191,"sell":257},"2028-11":{"buy":191,"sell":257},"2028-12":{"buy":191,"sell":257},"2029":{"buy":181,"sell":232},"2030":{"buy":146,"sell":207},"2031":{"buy":126,"sell":185},"2032":{"buy":116,"sell":170},"2033":{"buy":130,"sell":165},"2034":{"buy":130,"sell":165},"2035":{"buy":126,"sell":165},"2036":{"buy":122,"sell":162},"2037":{"buy":126,"sell":158.41},"2038":{"buy":125,"sell":158.41},"2039":{"buy":125,"sell":158.41},"2040":{"buy":125,"sell":158.41},"2026-04":{"buy":139.58,"sell":140.58}},"I5":{"2026-05":{"buy":74,"sell":240},"2026-06":{"buy":109,"sell":230},"2026-07":{"buy":214,"sell":240},"2026-08":{"buy":234,"sell":275},"2026-09":{"buy":264,"sell":285},"2026-10":{"buy":294,"sell":315},"2026-11":{"buy":294,"sell":315},"2026-12":{"buy":294,"sell":315},"2027-01":{"buy":237,"sell":308},"2027-02":{"buy":237,"sell":308},"2027-03":{"buy":237,"sell":308},"2027-04":{"buy":237,"sell":308},"2027-05":{"buy":237,"sell":308},"2027-06":{"buy":237,"sell":308},"2027-07":{"buy":237,"sell":308},"2027-08":{"buy":237,"sell":308},"2027-09":{"buy":237,"sell":308},"2027-10":{"buy":237,"sell":308},"2027-11":{"buy":237,"sell":308},"2027-12":{"buy":237,"sell":308},"2028-01":{"buy":215,"sell":287},"2028-02":{"buy":215,"sell":287},"2028-03":{"buy":215,"sell":287},"2028-04":{"buy":215,"sell":287},"2028-05":{"buy":215,"sell":287},"2028-06":{"buy":215,"sell":287},"2028-07":{"buy":215,"sell":287},"2028-08":{"buy":215,"sell":287},"2028-09":{"buy":215,"sell":287},"2028-10":{"buy":215,"sell":287},"2028-11":{"buy":215,"sell":287},"2028-12":{"buy":215,"sell":287},"2029":{"buy":205,"sell":260},"2030":{"buy":170,"sell":235},"2031":{"buy":148,"sell":213},"2032":{"buy":137,"sell":198},"2033":{"buy":149,"sell":193},"2034":{"buy":149,"sell":193},"2035":{"buy":145,"sell":193},"2036":{"buy":141,"sell":190},"2037":{"buy":145,"sell":186.41},"2038":{"buy":144,"sell":186.41},"2039":{"buy":144,"sell":186.41},"2040":{"buy":144,"sell":186.41},"2026-04":{"buy":162.58,"sell":168.58}},"I1":{"2026-05":{"buy":220,"sell":410},"2026-06":{"buy":255,"sell":400},"2026-07":{"buy":360,"sell":410},"2026-08":{"buy":380,"sell":445},"2026-09":{"buy":410,"sell":455},"2026-10":{"buy":440,"sell":485},"2026-11":{"buy":440,"sell":485},"2026-12":{"buy":440,"sell":485},"2027-01":{"buy":382,"sell":475},"2027-02":{"buy":382,"sell":475},"2027-03":{"buy":382,"sell":475},"2027-04":{"buy":382,"sell":475},"2027-05":{"buy":382,"sell":475},"2027-06":{"buy":382,"sell":475},"2027-07":{"buy":382,"sell":475},"2027-08":{"buy":382,"sell":475},"2027-09":{"buy":382,"sell":475},"2027-10":{"buy":382,"sell":475},"2027-11":{"buy":382,"sell":475},"2027-12":{"buy":382,"sell":475},"2028-01":{"buy":360,"sell":455},"2028-02":{"buy":360,"sell":455},"2028-03":{"buy":360,"sell":455},"2028-04":{"buy":360,"sell":455},"2028-05":{"buy":360,"sell":455},"2028-06":{"buy":360,"sell":455},"2028-07":{"buy":360,"sell":455},"2028-08":{"buy":360,"sell":455},"2028-09":{"buy":360,"sell":455},"2028-10":{"buy":360,"sell":455},"2028-11":{"buy":360,"sell":455},"2028-12":{"buy":360,"sell":455},"2029":{"buy":350,"sell":430},"2030":{"buy":315,"sell":405},"2031":{"buy":295,"sell":383},"2032":{"buy":285,"sell":368},"2033":{"buy":299,"sell":363},"2034":{"buy":299,"sell":363},"2035":{"buy":295,"sell":363},"2036":{"buy":291,"sell":360},"2037":{"buy":295,"sell":356.41},"2038":{"buy":294,"sell":356.41},"2039":{"buy":294,"sell":356.41},"2040":{"buy":294,"sell":356.41},"2026-04":{"buy":308.58,"sell":338.58}}}};
-const PRELOADED_DATE = "2026-05-05T10:07:00.000Z";
+const PRELOADED_PRICES = {"SE/CO": {"Conv": {"2026-05": {"buy": 215, "sell": 230}, "2026-06": {"buy": 214, "sell": 225}, "2026-07": {"buy": 211, "sell": 232}, "2026-08": {"buy": 255, "sell": 278}, "2026-09": {"buy": 285, "sell": 315}, "2026-10": {"buy": 305, "sell": 330}, "2026-11": {"buy": 305, "sell": 330}, "2026-12": {"buy": 305, "sell": 330}, "2027-01": {"buy": 275, "sell": 290}, "2027-02": {"buy": 275, "sell": 290}, "2027-03": {"buy": 275, "sell": 290}, "2027-04": {"buy": 275, "sell": 290}, "2027-05": {"buy": 275, "sell": 290}, "2027-06": {"buy": 275, "sell": 290}, "2027-07": {"buy": 275, "sell": 290}, "2027-08": {"buy": 275, "sell": 290}, "2027-09": {"buy": 275, "sell": 290}, "2027-10": {"buy": 275, "sell": 290}, "2027-11": {"buy": 275, "sell": 290}, "2027-12": {"buy": 275, "sell": 290}, "2028-01": {"buy": 240, "sell": 260}, "2028-02": {"buy": 240, "sell": 260}, "2028-03": {"buy": 240, "sell": 260}, "2028-04": {"buy": 240, "sell": 260}, "2028-05": {"buy": 240, "sell": 260}, "2028-06": {"buy": 240, "sell": 260}, "2028-07": {"buy": 240, "sell": 260}, "2028-08": {"buy": 240, "sell": 260}, "2028-09": {"buy": 240, "sell": 260}, "2028-10": {"buy": 240, "sell": 260}, "2028-11": {"buy": 240, "sell": 260}, "2028-12": {"buy": 240, "sell": 260}, "2029": {"buy": 220, "sell": 235}, "2030": {"buy": 190, "sell": 220}, "2031": {"buy": 170, "sell": 190}, "2032": {"buy": 160, "sell": 180}, "2033": {"buy": 137, "sell": 165}, "2034": {"buy": 137, "sell": 165}, "2035": {"buy": 133, "sell": 165}, "2036": {"buy": 129, "sell": 162}, "2037": {"buy": 128, "sell": 160}, "2038": {"buy": 127, "sell": 160}, "2039": {"buy": 127, "sell": 160}, "2040": {"buy": 127, "sell": 160}}, "I0": {"2026-05": {"buy": 216, "sell": 233}, "2026-06": {"buy": 215, "sell": 228}, "2026-07": {"buy": 212, "sell": 235}, "2026-08": {"buy": 256, "sell": 281}, "2026-09": {"buy": 286, "sell": 318}, "2026-10": {"buy": 306, "sell": 333}, "2026-11": {"buy": 306, "sell": 333}, "2026-12": {"buy": 306, "sell": 333}, "2027-01": {"buy": 276, "sell": 292}, "2027-02": {"buy": 276, "sell": 292}, "2027-03": {"buy": 276, "sell": 292}, "2027-04": {"buy": 276, "sell": 292}, "2027-05": {"buy": 276, "sell": 292}, "2027-06": {"buy": 276, "sell": 292}, "2027-07": {"buy": 276, "sell": 292}, "2027-08": {"buy": 276, "sell": 292}, "2027-09": {"buy": 276, "sell": 292}, "2027-10": {"buy": 276, "sell": 292}, "2027-11": {"buy": 276, "sell": 292}, "2027-12": {"buy": 276, "sell": 292}, "2028-01": {"buy": 241, "sell": 262}, "2028-02": {"buy": 241, "sell": 262}, "2028-03": {"buy": 241, "sell": 262}, "2028-04": {"buy": 241, "sell": 262}, "2028-05": {"buy": 241, "sell": 262}, "2028-06": {"buy": 241, "sell": 262}, "2028-07": {"buy": 241, "sell": 262}, "2028-08": {"buy": 241, "sell": 262}, "2028-09": {"buy": 241, "sell": 262}, "2028-10": {"buy": 241, "sell": 262}, "2028-11": {"buy": 241, "sell": 262}, "2028-12": {"buy": 241, "sell": 262}, "2029": {"buy": 221, "sell": 237}, "2030": {"buy": 191, "sell": 222}, "2031": {"buy": 171, "sell": 192}, "2032": {"buy": 161, "sell": 182}, "2033": {"buy": 138, "sell": 167}, "2034": {"buy": 138, "sell": 167}, "2035": {"buy": 134, "sell": 167}, "2036": {"buy": 130, "sell": 164}, "2037": {"buy": 129, "sell": 162}, "2038": {"buy": 128, "sell": 162}, "2039": {"buy": 128, "sell": 162}, "2040": {"buy": 128, "sell": 162}}, "I5": {"2026-05": {"buy": 242, "sell": 265}, "2026-06": {"buy": 241, "sell": 260}, "2026-07": {"buy": 238, "sell": 267}, "2026-08": {"buy": 282, "sell": 313}, "2026-09": {"buy": 312, "sell": 350}, "2026-10": {"buy": 332, "sell": 365}, "2026-11": {"buy": 332, "sell": 365}, "2026-12": {"buy": 332, "sell": 365}, "2027-01": {"buy": 302, "sell": 325}, "2027-02": {"buy": 300, "sell": 323}, "2027-03": {"buy": 300, "sell": 323}, "2027-04": {"buy": 300, "sell": 323}, "2027-05": {"buy": 300, "sell": 323}, "2027-06": {"buy": 300, "sell": 323}, "2027-07": {"buy": 300, "sell": 323}, "2027-08": {"buy": 300, "sell": 323}, "2027-09": {"buy": 300, "sell": 323}, "2027-10": {"buy": 300, "sell": 323}, "2027-11": {"buy": 300, "sell": 323}, "2027-12": {"buy": 300, "sell": 323}, "2028-01": {"buy": 265, "sell": 293}, "2028-02": {"buy": 265, "sell": 292}, "2028-03": {"buy": 265, "sell": 292}, "2028-04": {"buy": 265, "sell": 292}, "2028-05": {"buy": 265, "sell": 292}, "2028-06": {"buy": 265, "sell": 292}, "2028-07": {"buy": 265, "sell": 292}, "2028-08": {"buy": 265, "sell": 292}, "2028-09": {"buy": 265, "sell": 292}, "2028-10": {"buy": 265, "sell": 292}, "2028-11": {"buy": 265, "sell": 292}, "2028-12": {"buy": 265, "sell": 292}, "2029": {"buy": 245, "sell": 265}, "2030": {"buy": 215, "sell": 250}, "2031": {"buy": 193, "sell": 220}, "2032": {"buy": 182, "sell": 210}, "2033": {"buy": 157, "sell": 195}, "2034": {"buy": 157, "sell": 195}, "2035": {"buy": 153, "sell": 195}, "2036": {"buy": 149, "sell": 192}, "2037": {"buy": 148, "sell": 190}, "2038": {"buy": 147, "sell": 190}, "2039": {"buy": 147, "sell": 190}, "2040": {"buy": 147, "sell": 190}}, "I1": {"2026-05": {"buy": 385, "sell": 430}, "2026-06": {"buy": 384, "sell": 425}, "2026-07": {"buy": 381, "sell": 432}, "2026-08": {"buy": 425, "sell": 478}, "2026-09": {"buy": 455, "sell": 515}, "2026-10": {"buy": 475, "sell": 530}, "2026-11": {"buy": 475, "sell": 530}, "2026-12": {"buy": 475, "sell": 530}, "2027-01": {"buy": 445, "sell": 490}, "2027-02": {"buy": 445, "sell": 490}, "2027-03": {"buy": 445, "sell": 490}, "2027-04": {"buy": 445, "sell": 490}, "2027-05": {"buy": 445, "sell": 490}, "2027-06": {"buy": 445, "sell": 490}, "2027-07": {"buy": 445, "sell": 490}, "2027-08": {"buy": 445, "sell": 490}, "2027-09": {"buy": 445, "sell": 490}, "2027-10": {"buy": 445, "sell": 490}, "2027-11": {"buy": 445, "sell": 490}, "2027-12": {"buy": 445, "sell": 490}, "2028-01": {"buy": 410, "sell": 460}, "2028-02": {"buy": 410, "sell": 460}, "2028-03": {"buy": 410, "sell": 460}, "2028-04": {"buy": 410, "sell": 460}, "2028-05": {"buy": 410, "sell": 460}, "2028-06": {"buy": 410, "sell": 460}, "2028-07": {"buy": 410, "sell": 460}, "2028-08": {"buy": 410, "sell": 460}, "2028-09": {"buy": 410, "sell": 460}, "2028-10": {"buy": 410, "sell": 460}, "2028-11": {"buy": 410, "sell": 460}, "2028-12": {"buy": 410, "sell": 460}, "2029": {"buy": 390, "sell": 435}, "2030": {"buy": 360, "sell": 420}, "2031": {"buy": 340, "sell": 390}, "2032": {"buy": 330, "sell": 380}, "2033": {"buy": 307, "sell": 365}, "2034": {"buy": 307, "sell": 365}, "2035": {"buy": 303, "sell": 365}, "2036": {"buy": 299, "sell": 362}, "2037": {"buy": 298, "sell": 360}, "2038": {"buy": 297, "sell": 360}, "2039": {"buy": 297, "sell": 360}, "2040": {"buy": 297, "sell": 360}}}, "S": {"Conv": {"2026-05": {"buy": 210, "sell": 270}, "2026-06": {"buy": 209, "sell": 235}, "2026-07": {"buy": 211, "sell": 232}, "2026-08": {"buy": 255, "sell": 278}, "2026-09": {"buy": 285, "sell": 315}, "2026-10": {"buy": 305, "sell": 330}, "2026-11": {"buy": 305, "sell": 330}, "2026-12": {"buy": 305, "sell": 330}, "2027-01": {"buy": 275, "sell": 290}, "2027-02": {"buy": 275, "sell": 290}, "2027-03": {"buy": 275, "sell": 290}, "2027-04": {"buy": 275, "sell": 290}, "2027-05": {"buy": 275, "sell": 290}, "2027-06": {"buy": 275, "sell": 290}, "2027-07": {"buy": 275, "sell": 290}, "2027-08": {"buy": 275, "sell": 290}, "2027-09": {"buy": 275, "sell": 290}, "2027-10": {"buy": 275, "sell": 290}, "2027-11": {"buy": 275, "sell": 290}, "2027-12": {"buy": 275, "sell": 290}, "2028-01": {"buy": 240, "sell": 260}, "2028-02": {"buy": 240, "sell": 260}, "2028-03": {"buy": 240, "sell": 260}, "2028-04": {"buy": 240, "sell": 260}, "2028-05": {"buy": 240, "sell": 260}, "2028-06": {"buy": 240, "sell": 260}, "2028-07": {"buy": 240, "sell": 260}, "2028-08": {"buy": 240, "sell": 260}, "2028-09": {"buy": 240, "sell": 260}, "2028-10": {"buy": 240, "sell": 260}, "2028-11": {"buy": 240, "sell": 260}, "2028-12": {"buy": 240, "sell": 260}, "2029": {"buy": 220, "sell": 235}, "2030": {"buy": 190, "sell": 220}, "2031": {"buy": 170, "sell": 190}, "2032": {"buy": 160, "sell": 180}, "2033": {"buy": 137, "sell": 165}, "2034": {"buy": 137, "sell": 165}, "2035": {"buy": 133, "sell": 165}, "2036": {"buy": 129, "sell": 162}, "2037": {"buy": 128, "sell": 160}, "2038": {"buy": 127, "sell": 160}, "2039": {"buy": 127, "sell": 160}, "2040": {"buy": 127, "sell": 160}}, "I0": {"2026-05": {"buy": 211, "sell": 273}, "2026-06": {"buy": 210, "sell": 238}, "2026-07": {"buy": 212, "sell": 235}, "2026-08": {"buy": 256, "sell": 281}, "2026-09": {"buy": 286, "sell": 318}, "2026-10": {"buy": 306, "sell": 333}, "2026-11": {"buy": 306, "sell": 333}, "2026-12": {"buy": 306, "sell": 333}, "2027-01": {"buy": 276, "sell": 292}, "2027-02": {"buy": 276, "sell": 292}, "2027-03": {"buy": 276, "sell": 292}, "2027-04": {"buy": 276, "sell": 292}, "2027-05": {"buy": 276, "sell": 292}, "2027-06": {"buy": 276, "sell": 292}, "2027-07": {"buy": 276, "sell": 292}, "2027-08": {"buy": 276, "sell": 292}, "2027-09": {"buy": 276, "sell": 292}, "2027-10": {"buy": 276, "sell": 292}, "2027-11": {"buy": 276, "sell": 292}, "2027-12": {"buy": 276, "sell": 292}, "2028-01": {"buy": 241, "sell": 262}, "2028-02": {"buy": 241, "sell": 262}, "2028-03": {"buy": 241, "sell": 262}, "2028-04": {"buy": 241, "sell": 262}, "2028-05": {"buy": 241, "sell": 262}, "2028-06": {"buy": 241, "sell": 262}, "2028-07": {"buy": 241, "sell": 262}, "2028-08": {"buy": 241, "sell": 262}, "2028-09": {"buy": 241, "sell": 262}, "2028-10": {"buy": 241, "sell": 262}, "2028-11": {"buy": 241, "sell": 262}, "2028-12": {"buy": 241, "sell": 262}, "2029": {"buy": 221, "sell": 237}, "2030": {"buy": 191, "sell": 222}, "2031": {"buy": 171, "sell": 192}, "2032": {"buy": 161, "sell": 182}, "2033": {"buy": 138, "sell": 167}, "2034": {"buy": 138, "sell": 167}, "2035": {"buy": 134, "sell": 167}, "2036": {"buy": 130, "sell": 164}, "2037": {"buy": 129, "sell": 162}, "2038": {"buy": 128, "sell": 162}, "2039": {"buy": 128, "sell": 162}, "2040": {"buy": 128, "sell": 162}}, "I5": {"2026-05": {"buy": 237, "sell": 305}, "2026-06": {"buy": 236, "sell": 270}, "2026-07": {"buy": 238, "sell": 267}, "2026-08": {"buy": 282, "sell": 313}, "2026-09": {"buy": 312, "sell": 350}, "2026-10": {"buy": 332, "sell": 365}, "2026-11": {"buy": 332, "sell": 365}, "2026-12": {"buy": 332, "sell": 365}, "2027-01": {"buy": 302, "sell": 325}, "2027-02": {"buy": 300, "sell": 323}, "2027-03": {"buy": 300, "sell": 323}, "2027-04": {"buy": 300, "sell": 323}, "2027-05": {"buy": 300, "sell": 323}, "2027-06": {"buy": 300, "sell": 323}, "2027-07": {"buy": 300, "sell": 323}, "2027-08": {"buy": 300, "sell": 323}, "2027-09": {"buy": 300, "sell": 323}, "2027-10": {"buy": 300, "sell": 323}, "2027-11": {"buy": 300, "sell": 323}, "2027-12": {"buy": 300, "sell": 323}, "2028-01": {"buy": 265, "sell": 293}, "2028-02": {"buy": 265, "sell": 292}, "2028-03": {"buy": 265, "sell": 292}, "2028-04": {"buy": 265, "sell": 292}, "2028-05": {"buy": 265, "sell": 292}, "2028-06": {"buy": 265, "sell": 292}, "2028-07": {"buy": 265, "sell": 292}, "2028-08": {"buy": 265, "sell": 292}, "2028-09": {"buy": 265, "sell": 292}, "2028-10": {"buy": 265, "sell": 292}, "2028-11": {"buy": 265, "sell": 292}, "2028-12": {"buy": 265, "sell": 292}, "2029": {"buy": 245, "sell": 265}, "2030": {"buy": 215, "sell": 250}, "2031": {"buy": 193, "sell": 220}, "2032": {"buy": 182, "sell": 210}, "2033": {"buy": 157, "sell": 195}, "2034": {"buy": 157, "sell": 195}, "2035": {"buy": 153, "sell": 195}, "2036": {"buy": 149, "sell": 192}, "2037": {"buy": 148, "sell": 190}, "2038": {"buy": 147, "sell": 190}, "2039": {"buy": 147, "sell": 190}, "2040": {"buy": 147, "sell": 190}}, "I1": {"2026-05": {"buy": 380, "sell": 470}, "2026-06": {"buy": 379, "sell": 435}, "2026-07": {"buy": 381, "sell": 432}, "2026-08": {"buy": 425, "sell": 478}, "2026-09": {"buy": 455, "sell": 515}, "2026-10": {"buy": 475, "sell": 530}, "2026-11": {"buy": 475, "sell": 530}, "2026-12": {"buy": 475, "sell": 530}, "2027-01": {"buy": 445, "sell": 490}, "2027-02": {"buy": 445, "sell": 490}, "2027-03": {"buy": 445, "sell": 490}, "2027-04": {"buy": 445, "sell": 490}, "2027-05": {"buy": 445, "sell": 490}, "2027-06": {"buy": 445, "sell": 490}, "2027-07": {"buy": 445, "sell": 490}, "2027-08": {"buy": 445, "sell": 490}, "2027-09": {"buy": 445, "sell": 490}, "2027-10": {"buy": 445, "sell": 490}, "2027-11": {"buy": 445, "sell": 490}, "2027-12": {"buy": 445, "sell": 490}, "2028-01": {"buy": 410, "sell": 460}, "2028-02": {"buy": 410, "sell": 460}, "2028-03": {"buy": 410, "sell": 460}, "2028-04": {"buy": 410, "sell": 460}, "2028-05": {"buy": 410, "sell": 460}, "2028-06": {"buy": 410, "sell": 460}, "2028-07": {"buy": 410, "sell": 460}, "2028-08": {"buy": 410, "sell": 460}, "2028-09": {"buy": 410, "sell": 460}, "2028-10": {"buy": 410, "sell": 460}, "2028-11": {"buy": 410, "sell": 460}, "2028-12": {"buy": 410, "sell": 460}, "2029": {"buy": 390, "sell": 435}, "2030": {"buy": 360, "sell": 420}, "2031": {"buy": 340, "sell": 390}, "2032": {"buy": 330, "sell": 380}, "2033": {"buy": 307, "sell": 365}, "2034": {"buy": 307, "sell": 365}, "2035": {"buy": 303, "sell": 365}, "2036": {"buy": 299, "sell": 362}, "2037": {"buy": 298, "sell": 360}, "2038": {"buy": 297, "sell": 360}, "2039": {"buy": 297, "sell": 360}, "2040": {"buy": 297, "sell": 360}}}, "NE": {"Conv": {"2026-05": {"buy": 15, "sell": 180}, "2026-06": {"buy": 64, "sell": 175}, "2026-07": {"buy": 161, "sell": 232}, "2026-08": {"buy": 205, "sell": 278}, "2026-09": {"buy": 235, "sell": 315}, "2026-10": {"buy": 265, "sell": 330}, "2026-11": {"buy": 265, "sell": 330}, "2026-12": {"buy": 265, "sell": 330}, "2027-01": {"buy": 215, "sell": 265}, "2027-02": {"buy": 215, "sell": 265}, "2027-03": {"buy": 215, "sell": 265}, "2027-04": {"buy": 215, "sell": 265}, "2027-05": {"buy": 215, "sell": 265}, "2027-06": {"buy": 215, "sell": 265}, "2027-07": {"buy": 215, "sell": 265}, "2027-08": {"buy": 215, "sell": 265}, "2027-09": {"buy": 215, "sell": 265}, "2027-10": {"buy": 215, "sell": 265}, "2027-11": {"buy": 215, "sell": 265}, "2027-12": {"buy": 215, "sell": 265}, "2028-01": {"buy": 190, "sell": 245}, "2028-02": {"buy": 190, "sell": 245}, "2028-03": {"buy": 190, "sell": 245}, "2028-04": {"buy": 190, "sell": 245}, "2028-05": {"buy": 190, "sell": 245}, "2028-06": {"buy": 190, "sell": 245}, "2028-07": {"buy": 190, "sell": 245}, "2028-08": {"buy": 190, "sell": 245}, "2028-09": {"buy": 190, "sell": 245}, "2028-10": {"buy": 190, "sell": 245}, "2028-11": {"buy": 190, "sell": 245}, "2028-12": {"buy": 190, "sell": 245}, "2029": {"buy": 180, "sell": 225}, "2030": {"buy": 160, "sell": 215}, "2031": {"buy": 145, "sell": 188}, "2032": {"buy": 135, "sell": 178}, "2033": {"buy": 129, "sell": 163}, "2034": {"buy": 129, "sell": 163}, "2035": {"buy": 125, "sell": 163}, "2036": {"buy": 121, "sell": 160}, "2037": {"buy": 125, "sell": 158}, "2038": {"buy": 124, "sell": 158}, "2039": {"buy": 124, "sell": 158}, "2040": {"buy": 124, "sell": 158}}, "I0": {"2026-05": {"buy": 16, "sell": 183}, "2026-06": {"buy": 65, "sell": 178}, "2026-07": {"buy": 162, "sell": 235}, "2026-08": {"buy": 206, "sell": 281}, "2026-09": {"buy": 236, "sell": 318}, "2026-10": {"buy": 266, "sell": 333}, "2026-11": {"buy": 266, "sell": 333}, "2026-12": {"buy": 266, "sell": 333}, "2027-01": {"buy": 216, "sell": 267}, "2027-02": {"buy": 216, "sell": 267}, "2027-03": {"buy": 216, "sell": 267}, "2027-04": {"buy": 216, "sell": 267}, "2027-05": {"buy": 216, "sell": 267}, "2027-06": {"buy": 216, "sell": 267}, "2027-07": {"buy": 216, "sell": 267}, "2027-08": {"buy": 216, "sell": 267}, "2027-09": {"buy": 216, "sell": 267}, "2027-10": {"buy": 216, "sell": 267}, "2027-11": {"buy": 216, "sell": 267}, "2027-12": {"buy": 216, "sell": 267}, "2028-01": {"buy": 191, "sell": 247}, "2028-02": {"buy": 191, "sell": 247}, "2028-03": {"buy": 191, "sell": 247}, "2028-04": {"buy": 191, "sell": 247}, "2028-05": {"buy": 191, "sell": 247}, "2028-06": {"buy": 191, "sell": 247}, "2028-07": {"buy": 191, "sell": 247}, "2028-08": {"buy": 191, "sell": 247}, "2028-09": {"buy": 191, "sell": 247}, "2028-10": {"buy": 191, "sell": 247}, "2028-11": {"buy": 191, "sell": 247}, "2028-12": {"buy": 191, "sell": 247}, "2029": {"buy": 181, "sell": 227}, "2030": {"buy": 161, "sell": 217}, "2031": {"buy": 146, "sell": 190}, "2032": {"buy": 136, "sell": 180}, "2033": {"buy": 130, "sell": 165}, "2034": {"buy": 130, "sell": 165}, "2035": {"buy": 126, "sell": 165}, "2036": {"buy": 122, "sell": 162}, "2037": {"buy": 126, "sell": 160}, "2038": {"buy": 125, "sell": 160}, "2039": {"buy": 125, "sell": 160}, "2040": {"buy": 125, "sell": 160}}, "I5": {"2026-05": {"buy": 42, "sell": 215}, "2026-06": {"buy": 91, "sell": 210}, "2026-07": {"buy": 188, "sell": 267}, "2026-08": {"buy": 232, "sell": 313}, "2026-09": {"buy": 262, "sell": 350}, "2026-10": {"buy": 292, "sell": 365}, "2026-11": {"buy": 292, "sell": 365}, "2026-12": {"buy": 292, "sell": 365}, "2027-01": {"buy": 242, "sell": 300}, "2027-02": {"buy": 240, "sell": 298}, "2027-03": {"buy": 240, "sell": 298}, "2027-04": {"buy": 240, "sell": 298}, "2027-05": {"buy": 240, "sell": 298}, "2027-06": {"buy": 240, "sell": 298}, "2027-07": {"buy": 240, "sell": 298}, "2027-08": {"buy": 240, "sell": 298}, "2027-09": {"buy": 240, "sell": 298}, "2027-10": {"buy": 240, "sell": 298}, "2027-11": {"buy": 240, "sell": 298}, "2027-12": {"buy": 240, "sell": 298}, "2028-01": {"buy": 215, "sell": 278}, "2028-02": {"buy": 215, "sell": 277}, "2028-03": {"buy": 215, "sell": 277}, "2028-04": {"buy": 215, "sell": 277}, "2028-05": {"buy": 215, "sell": 277}, "2028-06": {"buy": 215, "sell": 277}, "2028-07": {"buy": 215, "sell": 277}, "2028-08": {"buy": 215, "sell": 277}, "2028-09": {"buy": 215, "sell": 277}, "2028-10": {"buy": 215, "sell": 277}, "2028-11": {"buy": 215, "sell": 277}, "2028-12": {"buy": 215, "sell": 277}, "2029": {"buy": 205, "sell": 255}, "2030": {"buy": 185, "sell": 245}, "2031": {"buy": 168, "sell": 218}, "2032": {"buy": 157, "sell": 208}, "2033": {"buy": 149, "sell": 193}, "2034": {"buy": 149, "sell": 193}, "2035": {"buy": 145, "sell": 193}, "2036": {"buy": 141, "sell": 190}, "2037": {"buy": 145, "sell": 188}, "2038": {"buy": 144, "sell": 188}, "2039": {"buy": 144, "sell": 188}, "2040": {"buy": 144, "sell": 188}}, "I1": {"2026-05": {"buy": 185, "sell": 380}, "2026-06": {"buy": 234, "sell": 375}, "2026-07": {"buy": 331, "sell": 432}, "2026-08": {"buy": 375, "sell": 478}, "2026-09": {"buy": 405, "sell": 515}, "2026-10": {"buy": 435, "sell": 530}, "2026-11": {"buy": 435, "sell": 530}, "2026-12": {"buy": 435, "sell": 530}, "2027-01": {"buy": 385, "sell": 465}, "2027-02": {"buy": 385, "sell": 465}, "2027-03": {"buy": 385, "sell": 465}, "2027-04": {"buy": 385, "sell": 465}, "2027-05": {"buy": 385, "sell": 465}, "2027-06": {"buy": 385, "sell": 465}, "2027-07": {"buy": 385, "sell": 465}, "2027-08": {"buy": 385, "sell": 465}, "2027-09": {"buy": 385, "sell": 465}, "2027-10": {"buy": 385, "sell": 465}, "2027-11": {"buy": 385, "sell": 465}, "2027-12": {"buy": 385, "sell": 465}, "2028-01": {"buy": 360, "sell": 445}, "2028-02": {"buy": 360, "sell": 445}, "2028-03": {"buy": 360, "sell": 445}, "2028-04": {"buy": 360, "sell": 445}, "2028-05": {"buy": 360, "sell": 445}, "2028-06": {"buy": 360, "sell": 445}, "2028-07": {"buy": 360, "sell": 445}, "2028-08": {"buy": 360, "sell": 445}, "2028-09": {"buy": 360, "sell": 445}, "2028-10": {"buy": 360, "sell": 445}, "2028-11": {"buy": 360, "sell": 445}, "2028-12": {"buy": 360, "sell": 445}, "2029": {"buy": 350, "sell": 425}, "2030": {"buy": 330, "sell": 415}, "2031": {"buy": 315, "sell": 388}, "2032": {"buy": 305, "sell": 378}, "2033": {"buy": 299, "sell": 363}, "2034": {"buy": 299, "sell": 363}, "2035": {"buy": 295, "sell": 363}, "2036": {"buy": 291, "sell": 360}, "2037": {"buy": 295, "sell": 358}, "2038": {"buy": 294, "sell": 358}, "2039": {"buy": 294, "sell": 358}, "2040": {"buy": 294, "sell": 358}}}, "N": {"Conv": {"2026-05": {"buy": 15, "sell": 180}, "2026-06": {"buy": 64, "sell": 175}, "2026-07": {"buy": 161, "sell": 182}, "2026-08": {"buy": 205, "sell": 228}, "2026-09": {"buy": 235, "sell": 265}, "2026-10": {"buy": 265, "sell": 280}, "2026-11": {"buy": 265, "sell": 280}, "2026-12": {"buy": 265, "sell": 280}, "2027-01": {"buy": 215, "sell": 280}, "2027-02": {"buy": 215, "sell": 280}, "2027-03": {"buy": 215, "sell": 280}, "2027-04": {"buy": 215, "sell": 280}, "2027-05": {"buy": 215, "sell": 280}, "2027-06": {"buy": 215, "sell": 280}, "2027-07": {"buy": 215, "sell": 280}, "2027-08": {"buy": 215, "sell": 280}, "2027-09": {"buy": 215, "sell": 280}, "2027-10": {"buy": 215, "sell": 280}, "2027-11": {"buy": 215, "sell": 280}, "2027-12": {"buy": 215, "sell": 280}, "2028-01": {"buy": 190, "sell": 255}, "2028-02": {"buy": 190, "sell": 255}, "2028-03": {"buy": 190, "sell": 255}, "2028-04": {"buy": 190, "sell": 255}, "2028-05": {"buy": 190, "sell": 255}, "2028-06": {"buy": 190, "sell": 255}, "2028-07": {"buy": 190, "sell": 255}, "2028-08": {"buy": 190, "sell": 255}, "2028-09": {"buy": 190, "sell": 255}, "2028-10": {"buy": 190, "sell": 255}, "2028-11": {"buy": 190, "sell": 255}, "2028-12": {"buy": 190, "sell": 255}, "2029": {"buy": 180, "sell": 230}, "2030": {"buy": 160, "sell": 215}, "2031": {"buy": 145, "sell": 188}, "2032": {"buy": 135, "sell": 178}, "2033": {"buy": 129, "sell": 163}, "2034": {"buy": 129, "sell": 163}, "2035": {"buy": 125, "sell": 163}, "2036": {"buy": 121, "sell": 160}, "2037": {"buy": 125, "sell": 158}, "2038": {"buy": 124, "sell": 158}, "2039": {"buy": 124, "sell": 158}, "2040": {"buy": 124, "sell": 158}}, "I0": {"2026-05": {"buy": 16, "sell": 183}, "2026-06": {"buy": 65, "sell": 178}, "2026-07": {"buy": 162, "sell": 185}, "2026-08": {"buy": 206, "sell": 231}, "2026-09": {"buy": 236, "sell": 268}, "2026-10": {"buy": 266, "sell": 283}, "2026-11": {"buy": 266, "sell": 283}, "2026-12": {"buy": 266, "sell": 283}, "2027-01": {"buy": 216, "sell": 282}, "2027-02": {"buy": 216, "sell": 282}, "2027-03": {"buy": 216, "sell": 282}, "2027-04": {"buy": 216, "sell": 282}, "2027-05": {"buy": 216, "sell": 282}, "2027-06": {"buy": 216, "sell": 282}, "2027-07": {"buy": 216, "sell": 282}, "2027-08": {"buy": 216, "sell": 282}, "2027-09": {"buy": 216, "sell": 282}, "2027-10": {"buy": 216, "sell": 282}, "2027-11": {"buy": 216, "sell": 282}, "2027-12": {"buy": 216, "sell": 282}, "2028-01": {"buy": 191, "sell": 257}, "2028-02": {"buy": 191, "sell": 257}, "2028-03": {"buy": 191, "sell": 257}, "2028-04": {"buy": 191, "sell": 257}, "2028-05": {"buy": 191, "sell": 257}, "2028-06": {"buy": 191, "sell": 257}, "2028-07": {"buy": 191, "sell": 257}, "2028-08": {"buy": 191, "sell": 257}, "2028-09": {"buy": 191, "sell": 257}, "2028-10": {"buy": 191, "sell": 257}, "2028-11": {"buy": 191, "sell": 257}, "2028-12": {"buy": 191, "sell": 257}, "2029": {"buy": 181, "sell": 232}, "2030": {"buy": 161, "sell": 217}, "2031": {"buy": 146, "sell": 190}, "2032": {"buy": 136, "sell": 180}, "2033": {"buy": 130, "sell": 165}, "2034": {"buy": 130, "sell": 165}, "2035": {"buy": 126, "sell": 165}, "2036": {"buy": 122, "sell": 162}, "2037": {"buy": 126, "sell": 160}, "2038": {"buy": 125, "sell": 160}, "2039": {"buy": 125, "sell": 160}, "2040": {"buy": 125, "sell": 160}}, "I5": {"2026-05": {"buy": 42, "sell": 215}, "2026-06": {"buy": 91, "sell": 210}, "2026-07": {"buy": 188, "sell": 217}, "2026-08": {"buy": 232, "sell": 263}, "2026-09": {"buy": 262, "sell": 300}, "2026-10": {"buy": 292, "sell": 315}, "2026-11": {"buy": 292, "sell": 315}, "2026-12": {"buy": 292, "sell": 315}, "2027-01": {"buy": 242, "sell": 315}, "2027-02": {"buy": 240, "sell": 313}, "2027-03": {"buy": 240, "sell": 313}, "2027-04": {"buy": 240, "sell": 313}, "2027-05": {"buy": 240, "sell": 313}, "2027-06": {"buy": 240, "sell": 313}, "2027-07": {"buy": 240, "sell": 313}, "2027-08": {"buy": 240, "sell": 313}, "2027-09": {"buy": 240, "sell": 313}, "2027-10": {"buy": 240, "sell": 313}, "2027-11": {"buy": 240, "sell": 313}, "2027-12": {"buy": 240, "sell": 313}, "2028-01": {"buy": 215, "sell": 288}, "2028-02": {"buy": 215, "sell": 287}, "2028-03": {"buy": 215, "sell": 287}, "2028-04": {"buy": 215, "sell": 287}, "2028-05": {"buy": 215, "sell": 287}, "2028-06": {"buy": 215, "sell": 287}, "2028-07": {"buy": 215, "sell": 287}, "2028-08": {"buy": 215, "sell": 287}, "2028-09": {"buy": 215, "sell": 287}, "2028-10": {"buy": 215, "sell": 287}, "2028-11": {"buy": 215, "sell": 287}, "2028-12": {"buy": 215, "sell": 287}, "2029": {"buy": 205, "sell": 260}, "2030": {"buy": 185, "sell": 245}, "2031": {"buy": 168, "sell": 218}, "2032": {"buy": 157, "sell": 208}, "2033": {"buy": 149, "sell": 193}, "2034": {"buy": 149, "sell": 193}, "2035": {"buy": 145, "sell": 193}, "2036": {"buy": 141, "sell": 190}, "2037": {"buy": 145, "sell": 188}, "2038": {"buy": 144, "sell": 188}, "2039": {"buy": 144, "sell": 188}, "2040": {"buy": 144, "sell": 188}}, "I1": {"2026-05": {"buy": 185, "sell": 380}, "2026-06": {"buy": 234, "sell": 375}, "2026-07": {"buy": 331, "sell": 382}, "2026-08": {"buy": 375, "sell": 428}, "2026-09": {"buy": 405, "sell": 465}, "2026-10": {"buy": 435, "sell": 480}, "2026-11": {"buy": 435, "sell": 480}, "2026-12": {"buy": 435, "sell": 480}, "2027-01": {"buy": 385, "sell": 480}, "2027-02": {"buy": 385, "sell": 480}, "2027-03": {"buy": 385, "sell": 480}, "2027-04": {"buy": 385, "sell": 480}, "2027-05": {"buy": 385, "sell": 480}, "2027-06": {"buy": 385, "sell": 480}, "2027-07": {"buy": 385, "sell": 480}, "2027-08": {"buy": 385, "sell": 480}, "2027-09": {"buy": 385, "sell": 480}, "2027-10": {"buy": 385, "sell": 480}, "2027-11": {"buy": 385, "sell": 480}, "2027-12": {"buy": 385, "sell": 480}, "2028-01": {"buy": 360, "sell": 455}, "2028-02": {"buy": 360, "sell": 455}, "2028-03": {"buy": 360, "sell": 455}, "2028-04": {"buy": 360, "sell": 455}, "2028-05": {"buy": 360, "sell": 455}, "2028-06": {"buy": 360, "sell": 455}, "2028-07": {"buy": 360, "sell": 455}, "2028-08": {"buy": 360, "sell": 455}, "2028-09": {"buy": 360, "sell": 455}, "2028-10": {"buy": 360, "sell": 455}, "2028-11": {"buy": 360, "sell": 455}, "2028-12": {"buy": 360, "sell": 455}, "2029": {"buy": 350, "sell": 430}, "2030": {"buy": 330, "sell": 415}, "2031": {"buy": 315, "sell": 388}, "2032": {"buy": 305, "sell": 378}, "2033": {"buy": 299, "sell": 363}, "2034": {"buy": 299, "sell": 363}, "2035": {"buy": 295, "sell": 363}, "2036": {"buy": 291, "sell": 360}, "2037": {"buy": 295, "sell": 358}, "2038": {"buy": 294, "sell": 358}, "2039": {"buy": 294, "sell": 358}, "2040": {"buy": 294, "sell": 358}}}};
+const PRELOADED_DATE = "2026-05-18T08:00:00.000Z";
 
 async function load() {
   try {
@@ -1802,11 +1895,11 @@ function renderResults() {
           const final = avg + pf + ps;
           return hasPrem
             ? `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:2px">
-                 flat: R$ ${avg.toFixed(2)}
+                 flat: R$ ${avg}
                </div>
-               <div class="res-price">${final.toFixed(2)}</div>
+               <div class="res-price">${final}</div>
                <div class="res-unit">R$/MWh (c/ prêmio)</div>`
-            : `<div class="res-price">${avg.toFixed(2)}</div>
+            : `<div class="res-price">${avg}</div>
                <div class="res-unit">R$/MWh</div>`;
         })() : `<div class="res-price" style="color:var(--muted);font-size:15px">sem preço</div>`}
       </div>
@@ -1856,7 +1949,7 @@ function exportXLS() {
       fim: endLbl,
       periodos: list.length,
       horas: totalH,
-      preco: avg !== null ? avg.toFixed(2) : 'sem preço',
+      preco: avg !== null ? avg : 'sem preço',
       alerta: nonStd ? 'Produto não padrão — Mesa de Operações' : ''
     };
   }).filter(Boolean);
@@ -2077,7 +2170,7 @@ function renderSummary() {
   }
 
   function fmt(v) {
-    return v !== null && v !== undefined ? v.toFixed(2) : '—';
+    return v !== null && v !== undefined ? v : '—';
   }
 
   const grid = document.getElementById('summary-grid');
@@ -2180,11 +2273,11 @@ function calcPremium() {
   const volLabels = {0.30:'C1 — 30% vol (muito otimista)', 0.50:'C2 — 50% vol (otimista)',
                     1.06:'C3 — 106% vol (base recomendado)', 1.52:'C4 — 152% vol (conservador)'};
 
-  document.getElementById('prem-flex').textContent  = `R$ ${premFlex.toFixed(2)}/MWh`;
-  document.getElementById('prem-sazo').textContent  = `R$ ${premSazo.toFixed(2)}/MWh`;
-  document.getElementById('prem-total').textContent = `R$ ${premTotal.toFixed(2)}/MWh (+${pctTotal}%)`;
+  document.getElementById('prem-flex').textContent  = `R$ ${premFlex}/MWh`;
+  document.getElementById('prem-sazo').textContent  = `R$ ${premSazo}/MWh`;
+  document.getElementById('prem-total').textContent = `R$ ${premTotal}/MWh (+${pctTotal}%)`;
   document.getElementById('prem-note').textContent  =
-    `Base: R$ ${basePrice.toFixed(2)} · ${volLabels[vol] || vol*100+'% vol'}`;
+    `Base: R$ ${basePrice} · ${volLabels[vol] || vol*100+'% vol'}`;
   resEl.style.display = 'block';
 
   // Store for export
@@ -2219,10 +2312,10 @@ function _refreshPriceDisplay() {
     card.classList.remove('lit-buy','lit-sell');
     card.classList.add(isBuy ? 'lit-buy' : 'lit-sell');
     wrap.innerHTML = hasPrem
-      ? `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:2px">flat: R$ ${avg.toFixed(2)}</div>
-         <div class="res-price">${final.toFixed(2)}</div>
+      ? `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:2px">flat: R$ ${avg}</div>
+         <div class="res-price">${final}</div>
          <div class="res-unit">R$/MWh (c/ prêmio)</div>`
-      : `<div class="res-price">${avg.toFixed(2)}</div><div class="res-unit">R$/MWh</div>`;
+      : `<div class="res-price">${avg}</div><div class="res-unit">R$/MWh</div>`;
   });
 }
 
@@ -2270,16 +2363,16 @@ async function exportDocx() {
 
     return {
       num: i+1, startFmt, endFmt, startLbl, endLbl,
-      avgFlat: avg !== null ? avg.toFixed(2) : '—',
-      avgFinal: avg !== null ? (avg + (params._premFlex||0) + (params._premSazo||0)).toFixed(2) : '—',
-      avg: avg !== null ? (avg + (params._premFlex||0) + (params._premSazo||0)).toFixed(2) : '—',
+      avgFlat: avg !== null ? avg : '—',
+      avgFinal: avg !== null ? (avg + (params._premFlex||0) + (params._premSazo||0)) : '—',
+      avg: avg !== null ? (avg + (params._premFlex||0) + (params._premSazo||0)) : '—',
       mwmAvg: mwmAvg !== null ? mwmAvg.toFixed(3) : '—',
-      mwhTotal: mwhTotal !== null ? mwhTotal.toFixed(0) : '—',
+      mwhTotal: mwhTotal !== null ? mwhTotal : '—',
       nonStd: isNonStandard(row.start, row.end),
       months: list.map((p,j) => ({
         label: p.label, hours: p.hours,
         vol: hasVols ? vols[j].toFixed(3) : '—',
-        price: (() => { const pv=getP(sub,src,priceKey(p.key)); return pv[side]?.toFixed(2) || '—'; })()
+        price: (() => { const pv=getP(sub,src,priceKey(p.key)); return pv[side]? || '—'; })()
       }))
     };
   }).filter(Boolean);
@@ -2314,9 +2407,9 @@ async function exportDocx() {
   const sazoText = sazoPct > 0
     ? `+/- ${sazoPct}%, devendo ser mantido o volume total anual de energia em MWh e informado até 01/10 do ano anterior ao fornecimento.`
     : `N/A`;
-  const premFlex  = params._premFlex  ? `R$ ${params._premFlex.toFixed(2)}/MWh`  : null;
-  const premSazo  = params._premSazo  ? `R$ ${params._premSazo.toFixed(2)}/MWh`  : null;
-  const premTotal = params._premTotal ? `R$ ${params._premTotal.toFixed(2)}/MWh` : null;
+  const premFlex  = params._premFlex  ? `R$ ${params._premFlex}/MWh`  : null;
+  const premSazo  = params._premSazo  ? `R$ ${params._premSazo}/MWh`  : null;
+  const premTotal = params._premTotal ? `R$ ${params._premTotal}/MWh` : null;
 
   generateWordHTML({
     contraparte, cnpj, posLabel, sub, subLabel, src, srcLabel, tipo, today, now,
@@ -2363,7 +2456,7 @@ function generateWordHTML(d) {
   else if (d.src==='I5') retusdText = 'R$ 35,00/MWh';
   else retusdText = 'N\u00e3o se aplica.';
   if (d.retusd!==null && d.retusd!==undefined && d.src!=='Conv' && d.src!=='I0') {
-    retusdText = 'R$ '+parseFloat(d.retusd).toFixed(2)+'/MWh';
+    retusdText = 'R$ '+parseFloat(d.retusd)+'/MWh';
   }
 
   // Data Base = 01 of current month
@@ -2445,7 +2538,7 @@ function generateWordHTML(d) {
     ['Aceite da Proposta', 'Uma vez aceita, as Partes dever\u00e3o assinar o Contrato em at\u00e9 30 dias.'],
     ['Registro da Energia', 'Registro Contra Pagamento. Em caso de cancelamento pela CCEE, a VENDEDORA ressarcir\u00e1 a COMPRADORA pelos preju\u00edzos decorrentes.'],
   ];
-  if (d.irec==='Sim') rows.push(['I-REC','Incluso. Fonte: '+(d.irecFonte||'\u2014')+(d.irecCusto?'. Custo: R$ '+parseFloat(d.irecCusto).toFixed(2)+'/MWh j\u00e1 incorporado.':'.')]);
+  if (d.irec==='Sim') rows.push(['I-REC','Incluso. Fonte: '+(d.irecFonte||'\u2014')+(d.irecCusto?'. Custo: R$ '+parseFloat(d.irecCusto)+'/MWh j\u00e1 incorporado.':'.')]);
   if (d.obs&&d.obs.trim()) rows.push(['Coment\u00e1rios', d.obs+'<br><br><i>Parte integrante desta proposta.</i>']);
   rows.push(['Validade da Proposta', validadeText]);
 
@@ -2707,22 +2800,119 @@ function showAdminTab(tab, btn) {
 
 (async()=>{
   await load();
-
-  // AUTO-LOGIN (sem autenticação por enquanto)
-  currentUser = { id: null, email: 'admin@triaenergia.com.br', name: 'Tria', role: 'admin' };
-  const ls = document.getElementById('login-screen');
-  if (ls) ls.style.display = 'none';
-  const ub = document.getElementById('user-badge');
-  if (ub) ub.style.display = 'flex';
-  const nb = document.getElementById('user-name-badge');
-  if (nb) nb.textContent = 'Tria Energia';
-
   // Start with 4 empty period rows
   for (let i=0;i<INIT_PERIODS;i++) periodRows.push({start:null,end:null,volumes:{}});
   renderSummary();
   renderPeriodRows();
   renderResults();
 })();
+
+// ════════════════════════════════════
+// NOVOS CAMPOS — Firme, Flat/Escalonado, Autocomplete, Pagamento, Garantias, Vol Admin
+// ════════════════════════════════════
+
+// Firme: mostrar/esconder campos de data e hora
+function toggleFirmeFields(show) {
+  const el = document.getElementById('firme-fields');
+  if (el) el.style.display = show ? 'block' : 'none';
+}
+
+// Flat / Escalonado
+let volumeMode = 'flat';
+function setVolumeMode(mode) {
+  volumeMode = mode;
+  document.getElementById('btn-flat').style.background = mode === 'flat' ? 'var(--green2)' : 'transparent';
+  document.getElementById('btn-flat').style.color = mode === 'flat' ? '#000' : 'var(--muted2)';
+  document.getElementById('btn-escalonado').style.background = mode === 'escalonado' ? 'var(--blue)' : 'transparent';
+  document.getElementById('btn-escalonado').style.color = mode === 'escalonado' ? '#000' : 'var(--muted2)';
+  renderPeriodRows();
+}
+
+// Cenário de vol: mostrar seleção só para Admin
+function applyVolVisibility() {
+  const isAdmin = currentUser && currentUser.role === 'admin';
+  const adminSel = document.getElementById('vol-admin-select');
+  const display = document.getElementById('vol-display');
+  if (adminSel) adminSel.style.display = isAdmin ? 'block' : 'none';
+  if (display) display.style.display = isAdmin ? 'none' : 'block';
+  // Panic button
+  const pb = document.getElementById('panic-btn');
+  if (pb) pb.style.display = isAdmin ? 'flex' : 'none';
+}
+
+// Autocomplete de contraparte via ReceitaWS
+const CONTRAPARTES_CACHE = {};
+async function searchContraparte(q) {
+  const list = document.getElementById('ac-list');
+  if (!list) return;
+  if (q.length < 2) { list.style.display = 'none'; return; }
+  // Search by name using BrasilAPI (free, no auth)
+  try {
+    const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/` + encodeURIComponent(q));
+  } catch(_) {}
+  // Fallback: just show what user typed as option
+  list.innerHTML = `<div style="padding:10px 14px;font-size:12px;color:var(--muted)">Digite o CNPJ para buscar automaticamente</div>`;
+  list.style.display = 'block';
+}
+
+async function buscaCNPJ(cnpj) {
+  const c = cnpj.replace(/\D/g,'');
+  if (c.length !== 14) return;
+  try {
+    const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${c}`);
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.razao_social) {
+      document.getElementById('contraparte').value = d.razao_social;
+      toast('✓ ' + d.razao_social);
+    }
+  } catch(e) { toast('CNPJ não encontrado'); }
+}
+
+// Ao digitar CNPJ completo, busca automaticamente
+const origFormatCNPJ = window.formatCNPJ;
+window.formatCNPJ = function(el) {
+  if (origFormatCNPJ) origFormatCNPJ(el);
+  const c = el.value.replace(/\D/g,'');
+  if (c.length === 14) buscaCNPJ(c);
+};
+
+// Flexibilidade: mostrar campo de percentual quando "Percentual do consumo"
+document.addEventListener('DOMContentLoaded', function() {
+  const flexTipo = document.getElementById('flex-tipo');
+  if (flexTipo) {
+    flexTipo.addEventListener('change', function() {
+      const wrap = document.getElementById('flex-pct-wrap');
+      if (wrap) wrap.style.display = this.value === 'percentual_consumo' ? 'flex' : 'none';
+    });
+  }
+});
+
+// Pagamento
+function setPgtoTipo(tipo, btn) {
+  document.querySelectorAll('#g-pgto .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  const diaEl = document.getElementById('pgto-dia');
+  if (tipo === 'util') { diaEl.value = 6; }
+  else { diaEl.value = 10; }
+  updatePgtoLabel();
+}
+function updatePgtoLabel() {
+  const tipo = document.getElementById('pgto-util')?.classList.contains('active') ? 'util' : 'corrido';
+  const dia = document.getElementById('pgto-dia')?.value || '6';
+  const label = document.getElementById('pgto-label');
+  if (label) label.textContent = `${dia}º Dia ${tipo === 'util' ? 'Útil' : 'Corrido'}`;
+}
+
+// Garantias: enable/disable campos
+function toggleGarField(id, enabled) {
+  const el = document.getElementById(id);
+  if (el) { el.disabled = !enabled; if (enabled) el.focus(); }
+}
+
+// Aplicar visibilidade ao carregar
+setTimeout(applyVolVisibility, 500);
+
 </script>
 </body>
 </html>
